@@ -752,7 +752,7 @@ function execute(hObject,ED)
     filename = get(Filename,'string');
     %将当前工作目录所在的文件夹保存到rest中
     rest = pwd;
-    ChangeDir(rest,OpenPropDirectory,filename);
+    Execute_ChangeDir(rest,OpenPropDirectory,filename);
     %% 将输入的数据读取至变量中
     Z = str2double(get(SpecificationsValues(1),'string'));
     N = str2double(get(SpecificationsValues(2),'string'));
@@ -1108,7 +1108,7 @@ function savedata(hObject,ED)
     filename = get(Filename,'string');
     %这里对文件目录进行处理是保证不进行计算也可以保存数据
     rest = pwd;
-    ChangeDir(rest,OpenPropDirectory,filename);
+    ChangeDir()
     Z = str2double(get(SpecificationsValues(1),'string'));
     N = str2double(get(SpecificationsValues(2),'string'));
     D = str2double(get(SpecificationsValues(3),'string'));
@@ -1152,13 +1152,11 @@ function savedata(hObject,ED)
 end
 %% 点击“加载”后回调的函数
 function loaddata(hObject,ED)
-    global OpenPropDirectory SpecificationsValues DuctValues FlagValues FoilValues Filename...
+    global SpecificationsValues DuctValues FlagValues FoilValues Filename...
            XR_in XCoD_in XCD_in VAI_in VTI_in ri_in Xt0oD_in skew0_in rake0_in;
-    rest = pwd;
-    filename = get(Filename,'string');
-    LoadDir(rest,OpenPropDirectory);
+    cd(['E:\project\prp\无人机(21年暑期项目)\OpenProp_official-revised-branch']);
     %uiload函数用于打开文件选择目录
-    uiload;
+    uiload;    
     set(SpecificationsValues(1),'string',num2str(Z));
     set(SpecificationsValues(2),'string',num2str(N));
     set(SpecificationsValues(3),'string',num2str(D));
