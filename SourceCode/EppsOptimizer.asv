@@ -1,12 +1,19 @@
-% Determines the "optimum" circulation, chord, and thickness distributions
-% that satisfy the input operating conditions, using a variational 
-% optimization algorithm for the propelller case (Coney, 1989), or a hybrid
-% blade element momentum / vortex lattice method for the turbine case
-% (Epps and Kimball, 2011).
+%Determines the "optimum" circulation, chord, and thickness distributions
+%that satisfy the input operating conditions, using a variational 
+%optimization algorithm for the propelller case (Coney, 1989), or a hybrid
+%blade element momentum / vortex lattice method for the turbine case
+%(Epps and Kimball, 2011).
 %
-% Returns: "design" data structure with performance specs such as 
+%这段程序用于决定满足给定输入条件的环量、弦长和叶片厚度分布的最优解
+%基于的原理是Coney于1989年提出的基于螺旋桨情况的差异化优化算法，或者是
+%Epps和Kimball于2011年提出的基于涡轮叶片的...理论
+%
+%Returns: "design" data structure with performance specs such as 
 %         thrust coefficient and efficiency, as well as the optimized
 %         circulation distribution, chord distribution, etc.
+%
+%该程序返回pt结构下的design结构化数组数据
+%包括进速系数、效率和优化后的环量分布、弦长分布等
 %
 % This implementation provides:
 %   -- Propeller optimization via vortex-lattice theory, solved by...
@@ -900,7 +907,7 @@ function [design] = EppsOptimizer(input)
         % ---------------------------------------------------------------------
         % END UPDATE: G, UASTAR, UTSTAR, TANBIC, (duct stuff), LM
         % =@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=
-        %% 更新其他变量
+        %% 优化结束后更新其他变量
         % ------------------------------------ Update VSTAR and its derivatives
         VSTAR  = sqrt((VAC+UADUCT+UASTAR).^2 + (L*RC+VTC+UTSTAR).^2);       
         % --------------------- Update the vortex Horseshoe Influence Functions
@@ -1045,7 +1052,7 @@ function [design] = EppsOptimizer(input)
         G_iter  = G_iter + 1;              % iteration in the G loop
         % ---------------------------------------------------------------------   
     end
-    %% 进行优化结果说明
+    %% 
     if G_iter > ITER
         disp(' '),
         disp('警告：结果未收敛'),
@@ -1055,6 +1062,10 @@ function [design] = EppsOptimizer(input)
         disp('完成优化，结果收敛'),
         Converge_flag = 1;
     end
+
+
+    % =========================================================================
+    % =========================================================================
     %%
 
     % =========================================================================
