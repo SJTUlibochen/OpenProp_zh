@@ -77,7 +77,7 @@ function [design] = EppsOptimizer(input)
         TpoT = input.TpoT;
         Cdd = input.Cdd;
         Rduct_oR = input.Rduct_oR;
-        %以下两个参数没有在GUI中输入，且还不知道其含义
+        %
         if isfield(input,'Cduct_oR')
             Cduct_oR = input.Cduct_oR;
         elseif isfield(input,'Cduct')
@@ -151,12 +151,6 @@ function [design] = EppsOptimizer(input)
         Pv = 2500;
     end
     SIGMAs = (Patm + rho*g*H - Pv)/(0.5*rho*Vs^2);   
-    %马蹄涡相关的计算方法选择 0 == Horseshoe(...,Wrench(...)) analytic formulae, 1 == Wake_Horseshoe(...) numerical model possibly including wake roll-up     
-    if isfield(input,'Wake_flag')
-        Wake_flag = input.Wake_flag;  
-    else
-        Wake_flag = 0;
-    end
     %当前没有这个输入选择
     if isfield(input,'ChordMethod')
         ChordMethod = input.ChordMethod;  
@@ -281,7 +275,7 @@ function [design] = EppsOptimizer(input)
         message = sprintf('警告：当前版本的OpenProp只支持均匀轴向流条件下的涡轮设计');
         uialert(Fig_Main,message,'不支持的功能','icon','warning');
     end
-    %% 计算径向位置并进行插值
+    %% 计算控制点和涡格点的径向位置并进行插值
     %Compute the Volumetric Mean Inflow Velocity, eqn 163, p.138
     %生成[Rhub_oR,1]之间100个等距点组成的向量
     XRtemp = linspace(Rhub_oR,1,100);         % (temp) radius / propeller radius
@@ -306,8 +300,7 @@ function [design] = EppsOptimizer(input)
     end
     t0oc = t0oDp./CpoDp; % input t0/c values
     %% 设置计算的初始值
-    %基于制动盘的理论初始化诱导速度和部分角度的估值
-    %Initial estimates based on Actuator Disc Theory
+    %基于桨盘理论初始化诱导速度和部分角度的估值
     if Propeller_flag == 1
         G = zeros(Mp,1);        %G = Gamma / 2*pi*Rp*Vs
         UASTAR = 0*RC + 0.5*(sqrt(1+CTPdes)-1);     % Kerwin & Hadler (2010), eqn (4.26)
@@ -335,14 +328,7 @@ function [design] = EppsOptimizer(input)
     end
     %初始化马蹄涡相关参数
     %Initialize vortex Horseshoe Influence Functions 
-    if Wake_flag == 0 
-        [UAHIF,UTHIF] = Horseshoe110628(Mp,Z,TANBIC,RC,RV,Hub_flag,Rhub_oR,Duct_flag,Rduct_oR);
-    else
-        URSTAR = zeros(1,Mp);                                         % URSTAR / Vs
-        message = sprintf('错误：当前版本已经不再支持Wake_flag，请重试');
-        uialert(Fig_Main,message,'不支持的功能','icon','error');
-        return
-    end
+    [UAHIF,UTHIF] = Horseshoe(Mp,Z,TANBIC,RC,RV,Hub_flag,Rhub_oR,Duct_flag,Rduct_oR);
     %初始化涵道相关参数
     %Initialize duct variables
     if Duct_flag == 1
@@ -904,23 +890,9 @@ function [design] = EppsOptimizer(input)
         % ------------------------------------ Update VSTAR and its derivatives
         VSTAR  = sqrt((VAC+UADUCT+UASTAR).^2 + (L*RC+VTC+UTSTAR).^2);       
         % --------------------- Update the vortex Horseshoe Influence Functions
-        if Wake_flag == 0 
-
-            % 11/17/2011 BEPPS: If you use TANBICsmooth here, then the circulation and 
-            %                   induced velocities in the turbine case will be wavy!
-            [UAHIF,UTHIF] = Horseshoe110628(Mp,Z,TANBIC,RC,RV,Hub_flag,Rhub_oR,Duct_flag,Rduct_oR);
-
-        else
-            % Update radial induced velocity
-            URSTAR = (URHIF*G)';
-
-            disp('ERROR: Wake_Geometry and Wake_Horseshoe are no longer supported...please re-implement these...')
-                % disp('Beginning to update {UAHIF,UTHIF,URHIF}'), 
-                % [WX,WY,WZ]          =  Wake_Geometry(Mp,RC,RV,TANBIV,VAC+UADUCT,UASTAR,URSTAR,CTPdes);
-                % %[UAHIF,UTHIF,URHIF] = Wake_Horseshoe(Mp,Z,RC,SCF,WX,WY,WZ,epsilon);
-                % [UAHIF,UTHIF,URHIF] = Wake_Horseshoe(Mp,Z,TANBIV,RC,RV,SCF,Hub_flag,Rhub_oR,Duct_flag,Rduct_oR,WX,WY,WZ,epsilon);
-                % disp('Done updating {UAHIF,UTHIF,URHIF}'), 
-        end        
+        % 11/17/2011 BEPPS: If you use TANBICsmooth here, then the circulation and 
+        %                   induced velocities in the turbine case will be wavy!
+        [UAHIF,UTHIF] = Horseshoe(Mp,Z,TANBIC,RC,RV,Hub_flag,Rhub_oR,Duct_flag,Rduct_oR);     
         % ---------------------------------------------------------------------    
 
 
@@ -1138,7 +1110,7 @@ function [design] = EppsOptimizer(input)
         disp(['    KT = ',num2str(KT)]),   
         disp(['    KQ = ',num2str(KQ)]),   
         disp(['    CT = ',num2str(CT)]),
-        if abs(VMIV - 1) > 1e-8,  % i.e. if VMIV is not equal to 1 
+        if abs(VMIV - 1) > 1e-8     % i.e. if VMIV is not equal to 1 
         disp(['    Ja = ',num2str(Ja)]),
         end
         disp(['  EFFY = ',num2str(EFFY)]),
@@ -1153,15 +1125,7 @@ function [design] = EppsOptimizer(input)
     end
         disp(' ')     
         disp(' ')     
-    % -------------------------------------------------------------------------
-    % -------------------------------------------------------------------------
-
-
-    % =========================================================================
-    % =========================================================================
-    % =========================================================================
-    % =========================================================================
-    % --------------------------- Package results in "design._____" data struct
+    %% 保存计算结果
     design.part1      = '------ Section properties, size (1,Mp) ------';
     design.RC         = RC;                 % [1 x Mp] control point radii
     design.DR         = DR;                 % [1 x Mp] difference in vortex point radii
@@ -1170,9 +1134,6 @@ function [design] = EppsOptimizer(input)
     design.VTC        = VTC;                % [1 x Mp] 
     design.UASTAR     = UASTAR;             % [1 x Mp] 
     design.UTSTAR     = UTSTAR;             % [1 x Mp] 
-    if Wake_flag == 1
-    design.URSTAR     = URSTAR;             % [1 x Mp] 
-    end
     design.VSTAR      = VSTAR;              % [1 x Mp]  
     design.TANBC      = TANBC;              % [1 x Mp] 
     design.TANBIC     = TANBIC;             % [1 x Mp] 

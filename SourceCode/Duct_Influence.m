@@ -1,9 +1,3 @@
-% =========================================================================
-% ======================================================== Duct_Influence.m
-% Created: J.M. Stubblefield, 2008    (originally named ductVort)
-% Last Modified: 11/2/2011, Brenden Epps
-%
-% -------------------------------------------------------------------------
 % This function:
 %   1) Forms a discrete vortex ring representation of a duct with 
 %           -- chord length Cduct_oR and axial offset Xduct_oR,
@@ -170,37 +164,33 @@ end  % ========================================= END ductInfluence Function
 % =========================================================================
 
 function [UA,UR] = vRing(Xring,Rring,XF,RF,Gring)
+    if Rring == 0               %stops function if Rring = 0
+        UA = 0;
+        UR = 0;
+        return
+    end
+    if XF == Xring && RF == Rring          % stop if field point on vortex ring
+        UA = 0;
+        UR = 0;
+        return
+    end
+    % --------------------------------------- Non-dimensional coordinates (x,r)
+    x = (XF-Xring)/Rring;                       %x/r' from Kuchemann
+    r =  RF       /Rring;                       %r/r' from Kuchemann
 
-if Rring == 0               %stops function if Rring = 0
-    UA = 0;
-    UR = 0;
-    return
+    %Elliptic integral method (Kuchemann p. 305)
+    %uses parameter k where k^2 = m for elliptic integrals
+
+    k     = sqrt(4*r/(x^2+(r+1)^2));
+    % [K,E] = ellipke(k^2);
+    [K,E] = elliptic12(pi/2,k^2);
+
+    UA = Gring/(Rring)/sqrt(x^2+(r+1)^2)*(K-(1+2*(r-1)/(x^2+(r-1)^2))*E);
+
+    if r==0
+        UR = 0;
+    else
+        UR = Gring/(Rring)*(-x)/r/sqrt(x^2+(r+1)^2)*(K-(1+2*r/(x^2+(r-1)^2))*E);
+    end
+
 end
-
-if XF == Xring && RF == Rring          % stop if field point on vortex ring
-    UA = 0;
-    UR = 0;
-    return
-end
-
-% --------------------------------------- Non-dimensional coordinates (x,r)
-x = (XF-Xring)/Rring;                       %x/r' from Kuchemann
-r =  RF       /Rring;                       %r/r' from Kuchemann
-
-%Elliptic integral method (Kuchemann p. 305)
-%uses parameter k where k^2 = m for elliptic integrals
-
-k     = sqrt(4*r/(x^2+(r+1)^2));
-% [K,E] = ellipke(k^2);
-[K,E] = elliptic12(pi/2,k^2);
-
-UA = Gring/(Rring)/sqrt(x^2+(r+1)^2)*(K-(1+2*(r-1)/(x^2+(r-1)^2))*E);
-
-if r==0
-    UR = 0;
-else
-    UR = Gring/(Rring)*(-x)/r/sqrt(x^2+(r+1)^2)*(K-(1+2*r/(x^2+(r-1)^2))*E);
-end
-
-end  % ================================================= END vRing Function
-% =========================================================================

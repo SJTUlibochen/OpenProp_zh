@@ -42,7 +42,7 @@
 % UTSTAR is defined positive in the direction of the apparent inflow, omega*r
 % -------------------------------------------------------------------------
 
-function [UAHIF,UTHIF] = Horseshoe110628(Mp,Z,TANBIC,RC,RV,Hub_flag,Rhub_oR,Duct_flag,Rduct_oR)
+function [UAHIF,UTHIF] = Horseshoe(Mp,Z,TANBIC,RC,RV,Hub_flag,Rhub_oR,Duct_flag,Rduct_oR)
     UAHIF = zeros(Mp,Mp);
     UTHIF = zeros(Mp,Mp);
     for n = 1:Mp                 % for each control point, n     (FOR LOOP MF2)
@@ -54,8 +54,8 @@ function [UAHIF,UTHIF] = Horseshoe110628(Mp,Z,TANBIC,RC,RV,Hub_flag,Rhub_oR,Duct
             [UAW2,UTW2] = Wrench(Z,TANBIC(m)*RC(m)/RV(m)  ,RC(n),RV(m)  );  % Velocity induced at RC(n) by a unit vortex shed at RV(m)  , (Wrench returns 2*pi*R*u_bar)
             % ---------------------------- Find hub-image effects, Kerwin p.181
             if Hub_flag == 1
-                [UAWh1,UTWh1] = Wrench(Z, TANBIC(m)*RC(m)/(Rhub_oR^2/RV(m+1)) ,RC(n), Rhub_oR^2/RV(m+1) ); 
-                [UAWh2,UTWh2] = Wrench(Z, TANBIC(m)*RC(m)/(Rhub_oR^2/RV(m  )) ,RC(n), Rhub_oR^2/RV(m  ) ); 
+                [UAWh1,UTWh1] = Wrench(Z,TANBIC(m)*RC(m)/(Rhub_oR^2/RV(m+1)) ,RC(n), Rhub_oR^2/RV(m+1) ); 
+                [UAWh2,UTWh2] = Wrench(Z,TANBIC(m)*RC(m)/(Rhub_oR^2/RV(m)) ,RC(n), Rhub_oR^2/RV(m  ) ); 
                 UAW1 = UAW1 - UAWh1; 
                 UAW2 = UAW2 - UAWh2;
                 UTW1 = UTW1 - UTWh1;
