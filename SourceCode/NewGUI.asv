@@ -1,7 +1,16 @@
-% 该函数是新版GUI界面的测试程序
-function NewGUITest
+% 该程序负责OpenProp中文版主界面GUI的生成
+%% 主界面
+function NewGUI
+    %% 前处理
+    clear variables;
+    clear global;
+    global titlefontsize zhfontsize subcolumnfontsize numfontsize;
+    global Fig_Main;
+    global SpecificationsValues DuctValues;
+    global Table1PanelGrid rx_in CDp_x_in Meanline_x_in Thickness_x_in...
+           CL_x_in T0oDp_x_in;
     %% 设定各参数的缺省值
-    % 螺旋桨规格
+    % 螺旋桨规格    
     N_def = 7000;
     VS_def = 5;
     T_def = 0.2;
@@ -19,8 +28,9 @@ function NewGUITest
     Thickness_flag_def = 1;
     rx_def = [0.2;0.3;0.4;0.5;0.6;0.7;0.8;0.9;0.95;1];
     CDp_x_def = ones(Nx_def,1)*0.008;
-    Meanline_x_items = {'NACA a=0.8' 'NACA a=0.8 (modified)' 'Parabolic'};
-    Thickness_x_items = {'NACA 65A010' 'NACA 65A010 (modified)' 'Elliptical' 'Parabolic' 'NACA 66 (DTRC modified)'};
+    Meanline_x_items = {'NACA a=0.8','NACA a=0.8 (modified)','Parabolic'};
+    Thickness_x_items = {'NACA 65A010','NACA 65A010 (modified)',...
+                         'Elliptical','Parabolic','NACA 66 (DTRC modified)'};
     CL_x_def = 0.5+(0.2-0.5)*(rx_def-rx_def(1))/(rx_def(end)-rx_def(1));
     T0oDp_x_def = [0.0329;0.0281;0.0239;0.0198;0.0160;0.0125;0.0091;0.0060;0.0045;0];
     % 外部环境参数
@@ -238,17 +248,17 @@ function NewGUITest
                                 'fontsize',zhfontsize);
     FlagsValues(1).Layout.Column = [1 2];
     SpecificationsTexts(6) = uilabel('parent',HubPanelGrid,...
-                                     'text',SpecificationsStrings{index},...
+                                     'text',SpecificationsStrings{6},...
                                      'horizontalalignment','left',...
                                      'verticalalignment','center',...
-                                     'tooltip',SpecificationsTips{index},...
+                                     'tooltip',SpecificationsTips{6},...
                                      'fontsize',zhfontsize);
     SpecificationsValues(6) = uieditfield(HubPanelGrid,'numeric',...
                                           'fontsize',numfontsize,...
                                           'horizontalalignment','center',...
-                                          'value',SpecificationsValues_def{index},...
+                                          'value',SpecificationsValues_def{6},...
                                           'limit',[0 Inf],...
-                                          'lowerlimitinclusive','off');
+                                          'lowerlimitinclusive','on');
                                                           
     % 涵道面板
     DuctPanel = uipanel(SpecificationsGrid);
@@ -276,7 +286,7 @@ function NewGUITest
                                                   'horizontalalignment','center',...
                                                   'value',SpecificationsValues_def{index},...
                                                   'limit',[0 Inf],...
-                                                  'lowerlimitinclusive','off');
+                                                  'lowerlimitinclusive','on');
     end    
     
     % 设置Specifications编辑框中的显示形式和单位
@@ -335,7 +345,9 @@ function NewGUITest
                                 'fontsize',zhfontsize);
     Property1Values(2) = uidropdown('parent',Property1PanelSubGrid(2),...
                                     'value',ChordMethod_def,...
-                                    'items',{'CLmax','ConeyPLL','FAST2011dCTP','FAST2011dVAC','Brizzolara2007'},...
+                                    'items',{'CLmax','ConeyPLL',...
+                                             'FAST2011dCTP','FAST2011dVAC',...
+                                             'Brizzolara2007'},...
                                     'fontsize',numfontsize);
     FlagsValues(3) = uicheckbox('parent',Property1PanelGrid,...
                                 'text','凸缘线是否同一？',...
@@ -355,7 +367,8 @@ function NewGUITest
                                    'rowspacing',2,...
                                    'padding',[10 10 10 0]);
     Table1Strings = {'径向位置','阻力系数','凸缘线','叶型','升力系数','厚径比'};
-    Table1Tips = {'rx','CDp_x','Meanline','Thickness','CL_x','T0oDp_x，叶厚与叶片直径之比'};
+    Table1Tips = {'rx','CDp_x','Meanline','Thickness',...
+                  'CL_x','T0oDp_x，叶厚与叶片直径之比'};
     for index = 1 : length(Table1Strings)
         Col_Label(index) = uilabel('parent',Table1PanelGrid,...
                                    'text',Table1Strings{index},...
@@ -389,13 +402,17 @@ function NewGUITest
                                      'fontsize',numfontsize,...
                                      'horizontalalignment','center',...
                                      'value',CL_x_def(index),...
-                                     'limit',[0 Inf]);
+                                     'limit',[0 Inf],...
+                                     'editable','on',...
+                                     'enable','on');
                                  
         T0oDp_x_in(index) = uieditfield(Table1PanelGrid,'numeric',...
                                        'fontsize',numfontsize,...
                                        'horizontalalignment','center',...
                                        'value',T0oDp_x_def(index),...
-                                       'limit',[0 Inf]);
+                                       'limit',[0 Inf],...
+                                       'editable','on',...
+                                       'enable','on');
     end    
     %% 子栏“外部环境参数”中的GUI元素
     % 生成Inflow中的网格
@@ -456,7 +473,8 @@ function NewGUITest
                                    'rowspacing',2,...
                                    'padding',[10 10 10 0]);
     Table2Strings = {'径向位置','轴向来流速度','切向来流速度'};
-    Table2Tips = {'ri','VA_i，轴向来流速度与行进速度的比值','VT_i，切向来流速度与行进速度的比值'};
+    Table2Tips = {'ri','VA_i，轴向来流速度与行进速度的比值',...
+                  'VT_i，切向来流速度与行进速度的比值'};
     for index = 1 : length(Table2Strings)
         Col_Label(index) = uilabel('parent',Table2PanelGrid,...
                                    'text',Table2Strings{index},...
@@ -519,12 +537,15 @@ function NewGUITest
                              'padding',[5 5 5 5],...
                              'scrollable','off');
     
-    % 旗面板
+    % 复选框面板
     FlagsPanel = uipanel(ToolsGrid);
     FlagsPanelGrid = uigridlayout(FlagsPanel,[2,2]);
-    FlagsStrings = {'是否绘制性能曲线？','是否绘制演示模型？','是否输出点坐标？','是否输出stl文件'};
-    FlagsTips = {'Analyze_flag','Geometry_flag','Coordinate_flag','3DPrint_flag'};
-    FlagsValues_def = {Analyze_flag_def,Geometry_flag_def,Coordinate_flag_def,Printing_flag};
+    FlagsStrings = {'是否绘制性能曲线？','是否绘制演示模型？',...
+                    '是否输出点坐标？','是否输出stl文件'};
+    FlagsTips = {'Analyze_flag','Geometry_flag',...
+                 'Coordinate_flag','3DPrint_flag'};
+    FlagsValues_def = {Analyze_flag_def,Geometry_flag_def,...
+                       Coordinate_flag_def,Printing_flag};
     for index = 1 : 4
         FlagsValues(index+4) = uicheckbox('parent',FlagsPanelGrid,...
                                           'text',FlagsStrings{index},...
@@ -614,27 +635,281 @@ function NewGUITest
                                  'value',filename_def);
     FilenameValues.Layout.Column = [2 4];
     LoadButton = uibutton('parent',FilePanelGrid,...
-                          'text','',...
-                          'tooltip','将.mat文件载入GUI',...
+                          'text','导入',...
                           'icon','load.png',...
-                          'fontsize',buttonfontsize,...
                           'buttonpushedfcn',@LoadData);
-    SaveButton = uibutton('parent',ToolsGrid,...
-                          'text','',...
-                          'tooltip','将GUI保存至.mat文件',...
+    SaveButton = uibutton('parent',FilePanelGrid,...
+                          'text','保存',...
                           'icon','save.png',...
-                          'fontsize',buttonfontsize,...
                           'buttonpushedfcn',@SaveData);
-    SaveCopyButton = uibutton('parent',ToolsGrid,...
-                              'text','',...
-                              'tooltip','将GUI另存为.mat文件',...
+    SaveCopyButton = uibutton('parent',FilePanelGrid,...
+                              'text','另存',...
                               'icon','savecopy.png',...
-                              'fontsize',buttonfontsize,...
                               'buttonpushedfcn',@SaveDataCopy);
-    RunButton = uibutton('parent',ToolsGrid,...
-                         'text','',...
-                         'tooltip','运行OpenProp',...
+    RunButton = uibutton('parent',FilePanelGrid,...
+                         'text','运行',...
                          'icon','run.png',...
-                         'fontsize',buttonfontsize,...
                          'buttonpushedfcn',@Execute);
+                     
+    %% 设置回调函数
+    % 设置Specifications编辑框的回调函数
+    set(SpecificationsValues,'valuechangedfcn',{@UpdateSpecifications,...
+                                                Dp_def,Dh_def,Dd_def});
+    
+    % 设置Specifications复选框的回调函数
+    set(FlagsValues(1),'valuechangedfcn',{@ChangeHub,Dh_def});
+    set(FlagsValues(2),'valuechangedfcn',{@ChangeDuct,Dd_def,Cd_def,...
+                                          TdoT_def,CDd_def});
+    
+    % 设置BladeDesign表格数控制的回调函数
+    set(Property1Values(1),'valuechangedfcn',{@ChangeNx,Meanline_x_items,...
+                                              Thickness_x_items,Property1Values});
+    
+    % 设置BladeDesign表格内容控制的回调函数
+    set(Property1Values(2),'valuechangedfcn',{@ChangeMethod,...
+                                              Property1Values});
+    
+    % 设置Inflow表格数控制的回调函数
+    
+    
+    % 设置Inflow表格内容控制的回调函数
+    
+    
+    % 设置Tools编辑框的回调函数
+    
+    
+    % 设置Tools按钮的回调函数
 end
+
+%% 子栏“螺旋桨规格”中涉及到的回调函数
+% 编辑框的回调函数
+function UpdateSpecifications(~,~,Dp_def,Dh_def,Dd_def)
+    global Fig_Main SpecificationsValues;
+    % 调整输入值，避免出现无意义的情况
+    Z = round(get(SpecificationsValues(4),'value'));
+    set(SpecificationsValues(4),'value',Z);
+    Dp = get(SpecificationsValues(5),'value');
+    Dh = get(SpecificationsValues(6),'value');
+    Dd = get(SpecificationsValues(7),'value');
+    % 检查桨毂直径与螺旋桨直径的输入值，若前者大于后者，则弹出提醒框
+    if Dh >= Dp
+        message1 = sprintf('当前设置的桨毂直径大于螺旋桨直径 \n 请重新设置！');
+        uialert(Fig_Main,message1,'参数设置错误',...
+                'closefcn',{@ResetDiameters1,SpecificationsValues,...
+                            Dp_def,Dh_def});
+    end
+    % 检查涵道直径与螺旋桨直径的输入值，若前者小于后者，则弹出提醒框
+    if Dd < Dp
+        message2 = sprintf('当前设置的涵道直径小于螺旋桨直径 \n 请重新设置！');
+        uialert(Fig_Main,message2,'参数设置错误',...
+                'closefcn',{@ResetDiameters2,SpecificationsValues,...
+                            Dp_def,Dd_def});
+    end
+end
+% 发生直径设置错误后调用的函数
+function ResetDiameters1(~,~,Dp_def,Dh_def)
+    global SpecificationsValues;
+    set(SpecificationsValues(5),'value',Dp_def);
+    set(SpecificationsValues(6),'value',Dh_def);
+end
+function ResetDiameters2(~,~,Dp_def,Dd_def)
+    global SpecificationsValues;
+    set(SpecificationsValues(5),'value',Dp_def);
+    set(SpecificationsValues(7),'value',Dd_def);
+end
+
+% 复选框的回调函数
+function ChangeHub(hObject,~,Dh_def)
+    global SpecificationsValues;
+    if get(hObject,'value')
+        % 勾选“加入桨毂”，允许编辑桨毂直径
+        set(SpecificationsValues(6),'enable','on');
+        set(SpecificationsValues(6),'editable','on');
+        set(SpecificationsValues(6),'value',Dh_def);
+    else
+        set(SpecificationsValues(6),'enable','off');
+        set(SpecificationsValues(6),'editable','off');
+        set(SpecificationsValues(6),'value',0);
+    end
+end
+
+function ChangeDuct(hObject,~,Dd_def,Cd_def,TdoT_def,CDd_def)
+    global SpecificationsValues DuctValues;
+    if get(hObject,'value')
+        % 勾选“加入涵道”，允许编辑涵道相关控件
+        set(SpecificationsValues(7),'enable','on');
+        set(SpecificationsValues(7),'editable','on');
+        set(SpecificationsValues(7),'value',Dd_def);
+        set(SpecificationsValues(8),'enable','on');
+        set(SpecificationsValues(8),'editable','on');
+        set(SpecificationsValues(8),'value',Cd_def);
+        set(DuctValues(1),'enable','on');
+        set(DuctValues(1),'editable','on');
+        set(DuctValues(1),'value',TdoT_def);
+        set(DuctValues(2),'enable','on');
+        set(DuctValues(2),'editable','on');
+        set(DuctValues(2),'value',CDd_def);
+    else
+        set(SpecificationsValues(7),'enable','off');
+        set(SpecificationsValues(7),'editable','off');
+        set(SpecificationsValues(7),'value',0);
+        set(SpecificationsValues(8),'enable','off');
+        set(SpecificationsValues(8),'editable','off');
+        set(SpecificationsValues(8),'value',0);
+        set(DuctValues(1),'enable','off');
+        set(DuctValues(1),'editable','off');
+        set(DuctValues(1),'value',0);
+        set(DuctValues(2),'enable','off');
+        set(DuctValues(2),'editable','off');
+        set(DuctValues(2),'value',0);
+    end
+end
+
+%% 子栏“叶片切面参数”中涉及到的回调函数
+% 表格数控制
+function ChangeNx(hObject,ED,Meanline_x_items,Thickness_x_items,...
+                  Property1Values)
+    global numfontsize;
+    global Table1PanelGrid rx_in CDp_x_in Meanline_x_in Thickness_x_in...
+           CL_x_in T0oDp_x_in;
+    % 调整输入值，避免出现无意义的情况
+    
+    set(SpecificationsValues(4),'value',round(get(SpecificationsValues(4),'value')));
+    Nx_new = get(hObject,'value');
+    % ED中储存了和本次值更改相关的数据，如更改前的值
+    Nx_previous = ED.PreviousValue;
+    
+    % 将GUI中原本的输入值导出
+    rx_previous = ones(Nx_previous,1);
+    CDp_x_previous = ones(Nx_previous,1);
+    CL_x_previous = ones(Nx_previous,1);
+    T0oDp_x_previous = ones(Nx_previous,1);
+    for index = 1 : Nx_previous
+        rx_previous(index) = get(rx_in(index),'value');
+        CDp_x_previous(index) = get(CDp_x_in(index),'value');
+        CL_x_previous(index) = get(CL_x_in(index),'value');
+        T0oDp_x_previous(index) = get(T0oDp_x_in(index),'value'); 
+    end    
+    % rx新缺省值的确定思路：保留两个端点和最后一段的中值点，其余位置平均分配
+    rx_new = zeros(Nx_new,1);
+    for index = 1 : Nx_new-2
+        rx_new(index) = 0.2+(index-1)*(1-0.2)/(Nx_new-1-1);
+    end
+    rx_new(Nx_new-1) = (1+rx_new(Nx_new-2))/2;
+    rx_new(Nx_new) = 1;
+    % CDp_x、CL_x、T0oDp_x新缺省值的确定思路：pchip插值
+    CDp_x_new = pchip(rx_previous,CDp_x_previous,rx_new);
+    CL_x_new = pchip(rx_previous,CL_x_previous,rx_new);
+    T0oDp_x_new = pchip(rx_previous,T0oDp_x_previous,rx_new);
+    
+    RowHeightCell = cell(1,Nx_new+1);
+    for index = 1 : Nx_new+1
+        RowHeightCell{index} = '1x';
+    end    
+    if Nx_new > Nx_previous
+        % 如果修改后表格数增加
+        set(Table1PanelGrid,'rowheight',RowHeightCell);
+        % 修改原有表格输入值
+        for index = 1 : Nx_previous
+            set(rx_in(index),'value',rx_new(index));
+            set(CDp_x_in(index),'value',CDp_x_new(index));
+            set(CL_x_in(index),'value',CL_x_new(index));
+            set(T0oDp_x_in(index),'value',T0oDp_x_new(index));
+        end   
+        % 生成新的表格
+        for index = Nx_previous+1 : Nx_new
+            rx_in(index) = uieditfield(Table1PanelGrid,'numeric',...
+                                       'fontsize',numfontsize,...
+                                       'horizontalalignment','center',...
+                                       'value',rx_new(index),...
+                                       'limit',[0 1]);
+                               
+            CDp_x_in(index) = uieditfield(Table1PanelGrid,'numeric',...
+                                          'fontsize',numfontsize,...
+                                          'horizontalalignment','center',...
+                                          'value',CDp_x_new(index),...
+                                          'limit',[0 Inf]);
+
+            Meanline_x_in(index) = uidropdown('parent',Table1PanelGrid,...
+                                              'items',Meanline_x_items,...
+                                              'fontsize',numfontsize);
+
+            Thickness_x_in(index) = uidropdown('parent',Table1PanelGrid,...
+                                               'items',Thickness_x_items,...
+                                               'fontsize',numfontsize);
+
+            CL_x_in(index) = uieditfield(Table1PanelGrid,'numeric',...
+                                         'fontsize',numfontsize,...
+                                         'horizontalalignment','center',...
+                                         'value',CL_x_new(index),...
+                                         'limit',[0 Inf]);
+
+            T0oDp_x_in(index) = uieditfield(Table1PanelGrid,'numeric',...
+                                            'fontsize',numfontsize,...
+                                            'horizontalalignment','center',...
+                                            'value',T0oDp_x_new(index),...
+                                            'limit',[0 Inf]);
+            
+            if strcmp(get(Property1Values(2),'value'),'CLmax')
+                % 设计方法为'CLmax'，允许编辑升力系数和厚径比
+                set(CL_x_in(index),'enable','on');
+                set(CL_x_in(index),'editable','on');
+                set(T0oDp_x_in(index),'enable','on');
+                set(T0oDp_x_in(index),'editable','on');
+            else
+                set(CL_x_in(index),'enable','off');
+                set(CL_x_in(index),'editable','off');
+                set(T0oDp_x_in(index),'enable','off');
+                set(T0oDp_x_in(index),'editable','off');
+            end                                          
+        end
+    elseif Nx_new < Nx_previous
+        % 删除多余的表格
+        for index = Nx_new+1 : Nx_previous
+            delete(rx_in(index));
+            delete(CDp_x_in(index));
+            delete(Meanline_x_in(index));
+            delete(Thickness_x_in(index));
+            delete(CL_x_in(index));
+            delete(T0oDp_x_in(index));
+        end  
+        set(Table1PanelGrid,'rowheight',RowHeightCell);
+        % 修改剩余表格输入值
+        for index = 1 : Nx_new
+            set(rx_in(index),'value',rx_new(index));
+            set(CDp_x_in(index),'value',CDp_x_new(index));
+            set(CL_x_in(index),'value',CL_x_new(index));
+            set(T0oDp_x_in(index),'value',T0oDp_x_new(index));
+        end   
+    else
+        return;
+    end    
+end
+
+% 表格内容控制
+function ChangeMethod(hObject,~,Property1Values)
+    global CL_x_in T0oDp_x_in;
+    Nx = get(Property1Values(1),'value');
+    method = get(hObject,'value');
+    if strcmp(method,'CLmax')
+        % 设计方法为'CLmax'，允许编辑升力系数和厚径比
+        for index = 1 : Nx
+            set(CL_x_in(index),'enable','on');
+            set(CL_x_in(index),'editable','on');
+            set(T0oDp_x_in(index),'enable','on');
+            set(T0oDp_x_in(index),'editable','on');
+        end    
+    else
+        for index = 1 : Nx
+            set(CL_x_in(index),'enable','off');
+            set(CL_x_in(index),'editable','off');
+            set(T0oDp_x_in(index),'enable','off');
+            set(T0oDp_x_in(index),'editable','off');
+        end   
+    end
+end
+
+%% 子栏“外部环境参数”中涉及到的回调函数
+
+
+%% 子栏“其他参数与工具”中涉及到的回调函数
