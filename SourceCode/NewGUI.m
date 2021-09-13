@@ -6,9 +6,10 @@ function NewGUI
     clear global;
     global titlefontsize zhfontsize subcolumnfontsize numfontsize;
     global Fig_Main;
-    global SpecificationsValues DuctValues;
-    global Table1PanelGrid rx_in CDp_x_in Meanline_x_in Thickness_x_in...
-           CL_x_in T0oDp_x_in;
+    global SpecificationsValues FlagsValues Property1Values Table1PanelGrid...
+           rx_in CDp_x_in Meanline_x_in Thickness_x_in CL_x_in T0oDp_x_in...
+           Property2Values Table2PanelGrid ri_in VA_i_in VT_i_in DuctValues...
+           ToolsValues FilenameValues
     %% 设定各参数的缺省值
     % 螺旋桨规格    
     N_def = 7000;
@@ -47,7 +48,7 @@ function NewGUI
     Analyze_flag_def = 1;
     Geometry_flag_def = 1;
     Coordinate_flag_def = 1;
-    Printing_flag = 1;
+    Printing_flag_def = 1;
     Mp_def = 20;
     Np_def = 20;
     Nd_def = 12;
@@ -62,6 +63,8 @@ function NewGUI
     % 主界面初始高度和宽度
     Windowht = 750;
     Window = 1530;
+    % 设定文件目录
+    OpenPropDirectory = 'OpenProp_zh';
     %% 主界面中的GUI元素
     % 生成主界面
     Fig_Main = uifigure('position',[5 55 Window Windowht],...
@@ -240,13 +243,17 @@ function NewGUI
                                 'columnwidth',{'2x','3.5x'},...
                                 'columnspacing',0,...
                                 'rowspacing',10,...
-                                'padding',[10 10 10 10]);  
-    FlagsValues(1) = uicheckbox('parent',HubPanelGrid,...
+                                'padding',[10 10 10 10]); 
+                            
+    HubPanelUpSubGrid = uigridlayout(HubPanelGrid,[1 1],...
+                                     'padding',[0 0 0 0]);
+    HubPanelUpSubGrid.Layout.Column = [1 2]; 
+    FlagsValues(1) = uicheckbox('parent',HubPanelUpSubGrid,...
                                 'text','设计中是否加入桨毂？',...
                                 'value',Hub_flag_def,...
                                 'tooltip','Hub_flag',...
                                 'fontsize',zhfontsize);
-    FlagsValues(1).Layout.Column = [1 2];
+    
     SpecificationsTexts(6) = uilabel('parent',HubPanelGrid,...
                                      'text',SpecificationsStrings{6},...
                                      'horizontalalignment','left',...
@@ -259,7 +266,7 @@ function NewGUI
                                           'value',SpecificationsValues_def{6},...
                                           'limit',[0 Inf],...
                                           'lowerlimitinclusive','on');
-                                                          
+                                      
     % 涵道面板
     DuctPanel = uipanel(SpecificationsGrid);
     DuctPanelGrid = uigridlayout(DuctPanel,[3 2],...
@@ -267,12 +274,16 @@ function NewGUI
                                  'columnspacing',0,...
                                  'rowspacing',10,...
                                  'padding',[10 10 10 10]);  
-    FlagsValues(2) = uicheckbox('parent',DuctPanelGrid,...
+                             
+    DuctPanelUpSubGrid = uigridlayout(DuctPanelGrid,[1 1],...
+                                     'padding',[0 0 0 0]);
+    DuctPanelUpSubGrid.Layout.Column = [1 2]; 
+    FlagsValues(2) = uicheckbox('parent',DuctPanelUpSubGrid,...
                                 'text','设计中是否加入涵道？',...
                                 'value',Duct_flag_def,...
                                 'tooltip','Duct_flag',...
                                 'fontsize',zhfontsize);
-    FlagsValues(2).Layout.Column = [1 2];
+    
     for index = 7 : 8
         SpecificationsTexts(index) = uilabel('parent',DuctPanelGrid,...
                                              'text',SpecificationsStrings{index},...
@@ -392,11 +403,13 @@ function NewGUI
                                   
         Meanline_x_in(index) = uidropdown('parent',Table1PanelGrid,...
                                           'items',Meanline_x_items,...
-                                          'fontsize',numfontsize);
+                                          'fontsize',numfontsize,...
+                                          'enable','off');
                                       
         Thickness_x_in(index) = uidropdown('parent',Table1PanelGrid,...
                                            'items',Thickness_x_items,...
-                                           'fontsize',numfontsize);
+                                           'fontsize',numfontsize,...
+                                           'enable','off');
                                        
         CL_x_in(index) = uieditfield(Table1PanelGrid,'numeric',...
                                      'fontsize',numfontsize,...
@@ -413,7 +426,10 @@ function NewGUI
                                        'limit',[0 Inf],...
                                        'editable','on',...
                                        'enable','on');
-    end    
+    end   
+    % 缺省状态下Meanline和Thickness下拉框只有第一行可用
+    set(Meanline_x_in(1),'enable','on');
+    set(Thickness_x_in(1),'enable','on');
     %% 子栏“外部环境参数”中的GUI元素
     % 生成Inflow中的网格
     InflowGrid = uigridlayout(Inflow,[2 1],...
@@ -541,11 +557,11 @@ function NewGUI
     FlagsPanel = uipanel(ToolsGrid);
     FlagsPanelGrid = uigridlayout(FlagsPanel,[2,2]);
     FlagsStrings = {'是否绘制性能曲线？','是否绘制演示模型？',...
-                    '是否输出点坐标？','是否输出stl文件'};
+                    '是否输出点坐标？','是否输出stl文件？'};
     FlagsTips = {'Analyze_flag','Geometry_flag',...
-                 'Coordinate_flag','3DPrint_flag'};
+                 'Coordinate_flag','Printing_flag'};
     FlagsValues_def = {Analyze_flag_def,Geometry_flag_def,...
-                       Coordinate_flag_def,Printing_flag};
+                       Coordinate_flag_def,Printing_flag_def};
     for index = 1 : 4
         FlagsValues(index+4) = uicheckbox('parent',FlagsPanelGrid,...
                                           'text',FlagsStrings{index},...
@@ -636,24 +652,21 @@ function NewGUI
     FilenameValues.Layout.Column = [2 4];
     LoadButton = uibutton('parent',FilePanelGrid,...
                           'text','导入',...
-                          'icon','load.png',...
-                          'buttonpushedfcn',@LoadData);
+                          'icon','load.png');
     SaveButton = uibutton('parent',FilePanelGrid,...
                           'text','保存',...
                           'icon','save.png',...
-                          'buttonpushedfcn',@SaveData);
-    SaveCopyButton = uibutton('parent',FilePanelGrid,...
-                              'text','另存',...
-                              'icon','savecopy.png',...
-                              'buttonpushedfcn',@SaveDataCopy);
+                          'buttonpushedfcn',@Save);
+    SaveCopyAsButton = uibutton('parent',FilePanelGrid,...
+                                'text','另存',...
+                                'icon','savecopy.png');
     RunButton = uibutton('parent',FilePanelGrid,...
                          'text','运行',...
-                         'icon','run.png',...
-                         'buttonpushedfcn',@Execute);
+                         'icon','run.png');
                      
     %% 设置回调函数
     % 设置Specifications编辑框的回调函数
-    set(SpecificationsValues,'valuechangedfcn',{@UpdateSpecifications,...
+    set(SpecificationsValues,'valuechangedfcn',{@ChangeSpecifications,...
                                                 Dp_def,Dh_def,Dd_def});
     
     % 设置Specifications复选框的回调函数
@@ -663,27 +676,32 @@ function NewGUI
     
     % 设置BladeDesign表格数控制的回调函数
     set(Property1Values(1),'valuechangedfcn',{@ChangeNx,Meanline_x_items,...
-                                              Thickness_x_items,Property1Values});
+                                              Thickness_x_items});
     
     % 设置BladeDesign表格内容控制的回调函数
-    set(Property1Values(2),'valuechangedfcn',{@ChangeMethod,...
-                                              Property1Values});
+    set(Property1Values(2),'valuechangedfcn',@ChangeMethod);
+    set(FlagsValues(3),'valuechangedfcn',@ConstantMeanline);
+    set(FlagsValues(4),'valuechangedfcn',@ConstantThickness);
+    set(Meanline_x_in(1),'valuechangedfcn',@Change1stMeanline);
+    set(Thickness_x_in(1),'valuechangedfcn',@Change1stThickness);
     
     % 设置Inflow表格数控制的回调函数
-    
-    
-    % 设置Inflow表格内容控制的回调函数
-    
+    set(Property2Values(1),'valuechangedfcn',@ChangeNi);
     
     % 设置Tools编辑框的回调函数
-    
+    set(ToolsValues,'valuechangedfcn',@ChangeTools)
     
     % 设置Tools按钮的回调函数
+    set(LoadButton,'buttonpushedfcn',{@Load,OpenPropDirectory});
+    set(SaveButton,'buttonpushedfcn',{@Save,OpenPropDirectory});
+    set(SaveCopyAsButton,'buttonpushedfcn',@SaveCopyAs);
+    set(RunButton,'buttonpushedfcn',@Execute);
+    
 end
 
 %% 子栏“螺旋桨规格”中涉及到的回调函数
 % 编辑框的回调函数
-function UpdateSpecifications(~,~,Dp_def,Dh_def,Dd_def)
+function ChangeSpecifications(~,~,Dp_def,Dh_def,Dd_def)
     global Fig_Main SpecificationsValues;
     % 调整输入值，避免出现无意义的情况
     Z = round(get(SpecificationsValues(4),'value'));
@@ -767,11 +785,10 @@ end
 
 %% 子栏“叶片切面参数”中涉及到的回调函数
 % 表格数控制
-function ChangeNx(hObject,ED,Meanline_x_items,Thickness_x_items,...
-                  Property1Values)
+function ChangeNx(hObject,ED,Meanline_x_items,Thickness_x_items)
     global numfontsize;
     global Table1PanelGrid rx_in CDp_x_in Meanline_x_in Thickness_x_in...
-           CL_x_in T0oDp_x_in;
+           CL_x_in T0oDp_x_in Property1Values FlagsValues;
     % 调整输入值，避免出现无意义的情况  
     set(hObject,'value',round(get(hObject,'value')));
     Nx_new = get(hObject,'value');
@@ -860,7 +877,23 @@ function ChangeNx(hObject,ED,Meanline_x_items,Thickness_x_items,...
                 set(CL_x_in(index),'editable','off');
                 set(T0oDp_x_in(index),'enable','off');
                 set(T0oDp_x_in(index),'editable','off');
-            end                                          
+            end   
+            
+            if get(FlagsValues(3),'value')
+                set(Meanline_x_in(index),'value',...
+                    get(Meanline_x_in(1),'value'));
+                set(Meanline_x_in(index),'enable','off');
+            else    
+                set(Meanline_x_in(index),'enable','on');
+            end 
+            
+            if get(FlagsValues(4),'value')
+                set(Thickness_x_in(index),'value',...
+                    get(Thickness_x_in(1),'value'));
+                set(Thickness_x_in(index),'enable','off');
+            else
+                set(Thickness_x_in(index),'enable','on');
+            end    
         end
     elseif Nx_new < Nx_previous
         % 删除多余的表格
@@ -886,8 +919,8 @@ function ChangeNx(hObject,ED,Meanline_x_items,Thickness_x_items,...
 end
 
 % 表格内容控制
-function ChangeMethod(hObject,~,Property1Values)
-    global CL_x_in T0oDp_x_in;
+function ChangeMethod(hObject,~)
+    global Property1Values CL_x_in T0oDp_x_in;
     Nx = get(Property1Values(1),'value');
     method = get(hObject,'value');
     if strcmp(method,'CLmax')
@@ -908,7 +941,684 @@ function ChangeMethod(hObject,~,Property1Values)
     end
 end
 
-%% 子栏“外部环境参数”中涉及到的回调函数
+function ConstantMeanline(hObject,~)
+    global Property1Values Meanline_x_in;
+    Nx = get(Property1Values(1),'value');
+    if get(hObject,'value')
+        % 勾选“凸缘线同一”，除第一行外下拉框均不可编辑
+        for index = 2 : Nx
+            set(Meanline_x_in(index),'enable','off');
+        end    
+    else
+        for index = 2 : Nx
+            set(Meanline_x_in(index),'enable','on');
+        end
+    end    
+end
 
+function ConstantThickness(hObject,~)
+    global Property1Values Thickness_x_in;
+    Nx = get(Property1Values(1),'value');
+    if get(hObject,'value')
+        % 勾选“叶型同一”，除第一行外下拉框均不可编辑
+        for index = 2 : Nx
+            set(Thickness_x_in(index),'enable','off');
+        end    
+    else
+        for index = 2 : Nx
+            set(Thickness_x_in(index),'enable','on');
+        end
+    end    
+end
+
+function Change1stMeanline(hObject,~)
+    global Property1Values FlagsValues Meanline_x_in;
+    Nx = get(Property1Values(1),'value');
+    meanline = get(hObject,'value');
+    if get(FlagsValues(3),'value')
+        % 勾选“凸缘线同一”，第一行更改后其余诸行一并更改
+        for index = 2 : Nx
+            set(Meanline_x_in(index),'value',meanline);
+        end
+    else
+        return
+    end    
+end
+
+function Change1stThickness(hObject,~)
+    global Property1Values FlagsValues Thickness_x_in;
+    Nx = get(Property1Values(1),'value');
+    thickness = get(hObject,'value');
+    if get(FlagsValues(4),'value')
+        % 勾选“叶型同一”，第一行更改后其余诸行一并更改
+        for index = 2 : Nx
+            set(Thickness_x_in(index),'value',thickness);
+        end
+    else
+        return
+    end    
+end
+
+%% 子栏“外部环境参数”中涉及到的回调函数
+function ChangeNi(hObject,ED)
+    global numfontsize;
+    global Table2PanelGrid ri_in VA_i_in VT_i_in;
+    % 调整输入值，避免出现无意义的情况  
+    set(hObject,'value',round(get(hObject,'value')));
+    Ni_new = get(hObject,'value');
+    % ED中储存了和本次值更改相关的数据，如更改前的值
+    Ni_previous = ED.PreviousValue;
+    
+    % 将GUI中原本的输入值导出
+    ri_previous = ones(Ni_previous,1);
+    VA_i_previous = ones(Ni_previous,1);
+    VT_i_previous = ones(Ni_previous,1);
+    for index = 1 : Ni_previous
+        ri_previous(index) = get(ri_in(index),'value');
+        VA_i_previous(index) = get(VA_i_in(index),'value');
+        VT_i_previous(index) = get(VT_i_in(index),'value');
+    end    
+    % ri新缺省值的确定思路：保留两个端点和最后一段的中值点，其余位置平均分配
+    ri_new = zeros(Ni_new,1);
+    for index = 1 : Ni_new-2
+        ri_new(index) = 0.2+(index-1)*(1-0.2)/(Ni_new-1-1);
+    end
+    ri_new(Ni_new-1) = (1+ri_new(Ni_new-2))/2;
+    ri_new(Ni_new) = 1;
+    % VA_i、VT_i新缺省值的确定思路：pchip插值
+    VA_i_new = pchip(ri_previous,VA_i_previous,ri_new);
+    VT_i_new = pchip(ri_previous,VT_i_previous,ri_new);
+    
+    RowHeightCell = cell(1,Ni_new+1);
+    for index = 1 : Ni_new+1
+        RowHeightCell{index} = '1x';
+    end    
+    if Ni_new > Ni_previous
+        % 如果修改后表格数增加
+        set(Table2PanelGrid,'rowheight',RowHeightCell);
+        % 修改原有表格输入值
+        for index = 1 : Ni_previous
+            set(ri_in(index),'value',ri_new(index));
+            set(VA_i_in(index),'value',VA_i_new(index));
+            set(VT_i_in(index),'value',VT_i_new(index));
+        end   
+        % 生成新的表格
+        for index = Ni_previous+1 : Ni_new
+            ri_in(index) = uieditfield(Table2PanelGrid,'numeric',...
+                                       'fontsize',numfontsize,...
+                                       'horizontalalignment','center',...
+                                       'value',ri_new(index),...
+                                       'limit',[0 1]);
+                               
+            VA_i_in(index) = uieditfield(Table2PanelGrid,'numeric',...
+                                         'fontsize',numfontsize,...
+                                         'horizontalalignment','center',...
+                                         'value',VA_i_new(index),...
+                                         'limit',[0 Inf]);
+
+            VT_i_in(index) = uieditfield(Table2PanelGrid,'numeric',...
+                                         'fontsize',numfontsize,...
+                                         'horizontalalignment','center',...
+                                         'value',VT_i_new(index),...
+                                         'limit',[0 Inf]);
+        end
+    elseif Ni_new < Ni_previous
+        % 删除多余的表格
+        for index = Ni_new+1 : Ni_previous
+            delete(ri_in(index));
+            delete(VA_i_in(index));
+            delete(VT_i_in(index));
+        end  
+        set(Table2PanelGrid,'rowheight',RowHeightCell);
+        % 修改剩余表格输入值
+        for index = 1 : Ni_new
+            set(ri_in(index),'value',ri_new(index));
+            set(VA_i_in(index),'value',VA_i_new(index));
+            set(VT_i_in(index),'value',VT_i_new(index));
+        end   
+    else
+        return;
+    end    
+end
 
 %% 子栏“其他参数与工具”中涉及到的回调函数
+% 控制点输入值修正
+function ChangeTools(hObject,~)
+    % 调整输入值，避免出现无意义的情况
+    input = round(get(hObject,'value'));
+    set(hObject,'value',input);
+end
+
+% 文件相关操作的回调函数
+function Load(~,~,OpenPropDirectory)
+    global pt numfontsize;
+    global SpecificationsValues FlagsValues Property1Values Table1PanelGrid...
+           rx_in CDp_x_in Meanline_x_in Thickness_x_in CL_x_in T0oDp_x_in...
+           Property2Values Table2PanelGrid ri_in VA_i_in VT_i_in DuctValues...
+           ToolsValues FilenameValues;
+    rest = pwd;
+    LoadDirectory(rest,OpenPropDirectory);
+    % uiload函数用于打开文件选择目录
+    uiload;
+    
+    % 获取按下导入按钮前GUI界面中的Nx和Ni
+    Nx_new = pt.input.Nx;
+    Nx_previous = get(Property1Values(1),'value');
+    Ni_new = pt.input.Ni;
+    Ni_previous = get(Property2Values(1),'value');
+    
+    RowHeightCell = cell(1,Nx_new+1);
+    for index = 1 : Nx_new+1
+        RowHeightCell{index} = '1x';
+    end    
+    
+    % 将数据导入“螺旋桨规格”
+    set(SpecificationsValues(1),'value',pt.input.N);
+    set(SpecificationsValues(2),'value',pt.input.VS);
+    set(SpecificationsValues(3),'value',pt.input.T);
+    set(SpecificationsValues(4),'value',pt.input.Z);
+    set(SpecificationsValues(5),'value',pt.input.Dp);
+    set(FlagsValues(1),'value',pt.input.Hub_flag);
+    set(SpecificationsValues(6),'value',pt.input.Dh);
+    set(FlagsValues(2),'value',pt.input.Duct_flag);
+    set(SpecificationsValues(7),'value',pt.input.Dd);
+    set(SpecificationsValues(8),'value',pt.input.Cd);
+    
+    % 将数据导入“叶片切面参数”
+    set(Property1Values(1),'value',pt.input.Nx);
+    set(Property1Values(2),'value',pt.input.ChordMethod);
+    set(FlagsValues(3),'value',pt.input.Meanline_flag);
+    set(FlagsValues(4),'value',pt.input.Thickness_flag);
+    if Nx_new > Nx_previous
+        % 导入数据的切面数量多余原GUI界面上显示的
+        set(Table1PanelGrid,'rowheight',RowHeightCell);
+        % 修改原有表格输入值
+        for index = 1 : Nx_previous
+            set(rx_in(index),'value',pt.input.rx(index));
+            set(CDp_x_in(index),'value',pt.input.CDp_x(index));
+            set(Meanline_x_in(index),'value',pt.input.Meanline_x{index});
+            set(Thickness_x_in(index),'value',pt.input.Thickness_x{index});
+            set(CL_x_in(index),'value',pt.input.CL_x(index));
+            set(T0oDp_x_in(index),'value',pt.input.T0oDp_x(index));
+            
+            if strcmp(pt.input.ChordMethod,'CLmax')
+                % 设计方法为'CLmax'，允许编辑升力系数和厚径比
+                set(CL_x_in(index),'enable','on');
+                set(CL_x_in(index),'editable','on');
+                set(T0oDp_x_in(index),'enable','on');
+                set(T0oDp_x_in(index),'editable','on');
+            else
+                set(CL_x_in(index),'enable','off');
+                set(CL_x_in(index),'editable','off');
+                set(T0oDp_x_in(index),'enable','off');
+                set(T0oDp_x_in(index),'editable','off');
+            end   
+            
+            if pt.input.Meanline_flag
+                set(Meanline_x_in(index),'value',...
+                    get(Meanline_x_in(1),'value'));
+                set(Meanline_x_in(index),'enable','off');
+            else    
+                set(Meanline_x_in(index),'enable','on');
+            end 
+            
+            if pt.input.Thickness_flag
+                set(Thickness_x_in(index),'value',...
+                    get(Thickness_x_in(1),'value'));
+                set(Thickness_x_in(index),'enable','off');
+            else
+                set(Thickness_x_in(index),'enable','on');
+            end    
+        end   
+        % 生成新的表格
+        for index = Nx_previous+1 : Nx_new
+            rx_in(index) = uieditfield(Table1PanelGrid,'numeric',...
+                                       'fontsize',numfontsize,...
+                                       'horizontalalignment','center',...
+                                       'value',pt.input.rx(index),...
+                                       'limit',[0 1]);
+                               
+            CDp_x_in(index) = uieditfield(Table1PanelGrid,'numeric',...
+                                          'fontsize',numfontsize,...
+                                          'horizontalalignment','center',...
+                                          'value',pt.input.CDp_x(index),...
+                                          'limit',[0 Inf]);
+
+            Meanline_x_in(index) = uidropdown('parent',Table1PanelGrid,...
+                                              'items',Meanline_x_items,...
+                                              'value',pt.input.Meanline_x{index},...
+                                              'fontsize',numfontsize);
+
+            Thickness_x_in(index) = uidropdown('parent',Table1PanelGrid,...
+                                               'items',Thickness_x_items,...
+                                               'value',pt.input.Thickness_x{index},...
+                                               'fontsize',numfontsize);
+
+            CL_x_in(index) = uieditfield(Table1PanelGrid,'numeric',...
+                                         'fontsize',numfontsize,...
+                                         'horizontalalignment','center',...
+                                         'value',pt.input.CL_x(index),...
+                                         'limit',[0 Inf]);
+
+            T0oDp_x_in(index) = uieditfield(Table1PanelGrid,'numeric',...
+                                            'fontsize',numfontsize,...
+                                            'horizontalalignment','center',...
+                                            'value',pt.input.T0oDp_x(index),...
+                                            'limit',[0 Inf]);
+            
+            if strcmp(pt.input.ChordMethod,'CLmax')
+                % 设计方法为'CLmax'，允许编辑升力系数和厚径比
+                set(CL_x_in(index),'enable','on');
+                set(CL_x_in(index),'editable','on');
+                set(T0oDp_x_in(index),'enable','on');
+                set(T0oDp_x_in(index),'editable','on');
+            else
+                set(CL_x_in(index),'enable','off');
+                set(CL_x_in(index),'editable','off');
+                set(T0oDp_x_in(index),'enable','off');
+                set(T0oDp_x_in(index),'editable','off');
+            end   
+            
+            if pt.input.Meanline_flag
+                set(Meanline_x_in(index),'value',...
+                    get(Meanline_x_in(1),'value'));
+                set(Meanline_x_in(index),'enable','off');
+            else    
+                set(Meanline_x_in(index),'enable','on');
+            end 
+            
+            if pt.input.Thickness_flag
+                set(Thickness_x_in(index),'value',...
+                    get(Thickness_x_in(1),'value'));
+                set(Thickness_x_in(index),'enable','off');
+            else
+                set(Thickness_x_in(index),'enable','on');
+            end    
+        end
+    elseif Nx_new < Nx_previous
+        % 删除多余的表格
+        for index = Nx_new+1 : Nx_previous
+            delete(rx_in(index));
+            delete(CDp_x_in(index));
+            delete(Meanline_x_in(index));
+            delete(Thickness_x_in(index));
+            delete(CL_x_in(index));
+            delete(T0oDp_x_in(index));
+        end  
+        set(Table1PanelGrid,'rowheight',RowHeightCell);
+        % 修改剩余表格输入值
+        for index = 1 : Nx_new
+            set(rx_in(index),'value',pt.input.rx(index));
+            set(CDp_x_in(index),'value',pt.input.CDp_x(index));
+            set(Meanline_x_in(index),'value',pt.input.Meanline_x{index});
+            set(Thickness_x_in(index),'value',pt.input.Thickness_x{index});
+            set(CL_x_in(index),'value',pt.input.CL_x(index));
+            set(T0oDp_x_in(index),'value',pt.input.T0oDp_x(index));
+            
+            if strcmp(pt.input.ChordMethod,'CLmax')
+                % 设计方法为'CLmax'，允许编辑升力系数和厚径比
+                set(CL_x_in(index),'enable','on');
+                set(CL_x_in(index),'editable','on');
+                set(T0oDp_x_in(index),'enable','on');
+                set(T0oDp_x_in(index),'editable','on');
+            else
+                set(CL_x_in(index),'enable','off');
+                set(CL_x_in(index),'editable','off');
+                set(T0oDp_x_in(index),'enable','off');
+                set(T0oDp_x_in(index),'editable','off');
+            end   
+            
+            if pt.input.Meanline_flag
+                set(Meanline_x_in(index),'value',...
+                    get(Meanline_x_in(1),'value'));
+                set(Meanline_x_in(index),'enable','off');
+            else    
+                set(Meanline_x_in(index),'enable','on');
+            end 
+            
+            if pt.input.Thickness_flag
+                set(Thickness_x_in(index),'value',...
+                    get(Thickness_x_in(1),'value'));
+                set(Thickness_x_in(index),'enable','off');
+            else
+                set(Thickness_x_in(index),'enable','on');
+            end    
+        end   
+    else    
+        return
+    end    
+    
+    % 将数据导入“外部环境参数”
+    set(Property2Values(1),'value',pt.input.Ni);
+    set(Property2Values(2),'value',pt.input.rho);
+    if Ni_new > Ni_previous
+        % 如果修改后表格数增加
+        set(Table2PanelGrid,'rowheight',RowHeightCell);
+        % 修改原有表格输入值
+        for index = 1 : Ni_previous
+            set(ri_in(index),'value',pt.input.ri(index));
+            set(VA_i_in(index),'value',pt.input.VA_i(index));
+            set(VT_i_in(index),'value',pt.input.VT_i(index));
+        end   
+        % 生成新的表格
+        for index = Ni_previous+1 : Ni_new
+            ri_in(index) = uieditfield(Table2PanelGrid,'numeric',...
+                                       'fontsize',numfontsize,...
+                                       'horizontalalignment','center',...
+                                       'value',pt.input.ri(index),...
+                                       'limit',[0 1]);
+                               
+            VA_i_in(index) = uieditfield(Table2PanelGrid,'numeric',...
+                                         'fontsize',numfontsize,...
+                                         'horizontalalignment','center',...
+                                         'value',pt.input.VA_i(index),...
+                                         'limit',[0 Inf]);
+
+            VT_i_in(index) = uieditfield(Table2PanelGrid,'numeric',...
+                                         'fontsize',numfontsize,...
+                                         'horizontalalignment','center',...
+                                         'value',pt.input.VT_i(index),...
+                                         'limit',[0 Inf]);
+        end
+    elseif Ni_new < Ni_previous
+        % 删除多余的表格
+        for index = Ni_new+1 : Ni_previous
+            delete(ri_in(index));
+            delete(VA_i_in(index));
+            delete(VT_i_in(index));
+        end  
+        set(Table2PanelGrid,'rowheight',RowHeightCell);
+        % 修改剩余表格输入值
+        for index = 1 : Ni_new
+            set(ri_in(index),'value',pt.input.ri(index));
+            set(VA_i_in(index),'value',pt.input.VA_i(index));
+            set(VT_i_in(index),'value',pt.input.VT_i(index));
+        end   
+    else
+        return;
+    end 
+    
+    % 将数据导入“涵道相关参数”
+    set(DuctValues(1),'value',pt.input.TdoT);
+    set(DuctValues(2),'value',pt.input.CDd);
+    
+    % 将数据导入“其他参数与工具”
+    set(FlagsValues(5),'value',pt.input.Analyze_flag);
+    set(FlagsValues(6),'value',pt.input.Geometry_flag);
+    set(FlagsValues(7),'value',pt.input.Coordinate_flag);
+    set(FlagsValues(8),'value',pt.input.Printing_flag);
+    set(ToolsValues(1),'value',pt.input.Mp);
+    set(ToolsValues(2),'value',pt.input.Np);
+    set(ToolsValues(3),'value',pt.input.Nd);
+    set(ToolsValues(4),'value',pt.input.ITER);
+    set(FilenameValues,'value',pt.filename);
+end
+
+function Save(~,~,OpenPropDirectory)
+    global Fig_Main pt;
+    global SpecificationsValues FlagsValues Property1Values rx_in...
+           CDp_x_in Meanline_x_in Thickness_x_in CL_x_in T0oDp_x_in...
+           Property2Values ri_in VA_i_in VT_i_in DuctValues ToolsValues...
+           FilenameValues;
+    filename = get(FilenameValues,'value');
+    
+    % existence表示是否存在同名项目
+    existence = ChangeDirectory(OpenPropDirectory,filename);
+    if existence
+        message = sprintf('当前项目名已经存在 \n 如果继续进行该操作，将覆盖原本文件 \n 确定继续吗？');
+        SaveSelection = uiconfirm(Fig_Main,message,'覆盖警告',...
+                                  'options',{'覆盖原版文件','另存为新名称','取消操作'},...
+                                  'defaultoption',2,...
+                                  'canceloption',3,...
+                                  'icon','warning');
+        if strcmp(SaveSelection,'覆盖原版文件')
+            % 选择“覆盖原始文件”,不需要进行操作
+        elseif strcmp(SaveSelection,'另存为新名称')
+            % 选择“另存为新名称”，调用SaveCopyAs函数
+            SaveCopyAs;
+        else
+            % 选择“取消操作”，退出
+            return
+        end    
+    end
+    
+    % 子栏“螺旋桨规格”中的输入值
+    N = get(SpecificationsValues(1),'value');       % 电机转速(RPM)
+    VS = get(SpecificationsValues(2),'value');      % 行进速度(m/s)
+    T = get(SpecificationsValues(3),'value');       % 总升力(N)
+    Z = get(SpecificationsValues(4),'value');       % 叶片数量
+    Dp = get(SpecificationsValues(5),'value');      % 叶片直径(m)
+    Hub_flag = get(FlagsValues(1),'value');         % 设计中是否加入桨毂？
+    Dh = get(SpecificationsValues(6),'value');      % 桨毂直径(m)
+    Duct_flag = get(FlagsValues(2),'value');        % 设计中是否加入涵道？
+    Dd = get(SpecificationsValues(7),'value');      % 涵道直径(m)
+    Cd = get(SpecificationsValues(8),'value');      % 涵道弦长(m)
+    
+    % 子栏“叶片切面参数”中的输入值
+    Nx = get(Property1Values(1),'value');           % 切面数量
+    ChordMethod = get(Property1Values(2),'value');  % 设计方法
+    Meanline_flag = get(FlagsValues(3),'value');    % 凸缘线是否同一？
+    Thickness_flag = get(FlagsValues(4),'value');   % 叶型是否同一？
+    rx = zeros(Nx,1);                               % 径向位置
+    CDp_x = zeros(Nx,1);                            % 阻力系数
+    Meanline_x = cell(Nx,1);                        % 凸缘线
+    Thickness_x = cell(Nx,1);                       % 叶型
+    CL_x = zeros(Nx,1);                             % 升力系数
+    T0oDp_x = zeros(Nx,1);                          % 厚径比
+    for index = 1 : Nx
+        rx(index) = get(rx_in(index),'value');
+        CDp_x(index) = get(CDp_x_in(index),'value');
+        Meanline_x{index} = get(Meanline_x_in(index),'value');
+        Thickness_x{index} = get(Thickness_x_in(index),'value');
+        CL_x(index) = get(CL_x_in(index),'value');
+        T0oDp_x(index) = get(T0oDp_x_in(index),'value');
+    end    
+    
+    % 子栏“外部环境参数”中的输入量
+    Ni = get(Property2Values(1),'value');           % 坐标数量
+    rho = get(Property2Values(2),'value');          % 流体密度
+    ri = zeros(Ni,1);                               % 径向位置
+    VA_i = zeros(Ni,1);                             % 轴向来流速度
+    VT_i = zeros(Ni,1);                             % 切向来流速度
+    for index = 1 : Ni
+        ri(index) = get(ri_in(index),'value');
+        VA_i(index) = get(VA_i_in(index),'value');
+        VT_i(index) = get(VT_i_in(index),'value');
+    end    
+    
+    % 子栏“涵道相关参数”中的输入量
+    TdoT = get(DuctValues(1),'value');              % 升力比重
+    CDd = get(DuctValues(2),'value');               % 阻力系数
+    
+    % 子栏“其他参数与工具”中的输入量
+    Analyze_flag = get(FlagsValues(5),'value');     % 是否绘制性能曲线？
+    Geometry_flag = get(FlagsValues(6),'value');    % 是否绘制演示模型？
+    Coordinate_flag = get(FlagsValues(7),'value');  % 是否输出点坐标？
+    Printing_flag = get(FlagsValues(8),'value');    % 是否输出stl文件？
+    Mp = get(ToolsValues(1),'value');               % 叶片控制点数量
+    Np = get(ToolsValues(2),'value');               % 叶片切向段数量
+    Nd = get(ToolsValues(3),'value');               % 涵道涡流环数量
+    ITER = get(ToolsValues(4),'value');             % 最大迭代次数
+    
+    % 将GUI界面的输入值保存至结构体数组input
+    input.part1 = '螺旋桨规格';
+    input.N = N;
+    input.VS = VS;
+    input.T = T;
+    input.Z = Z;
+    input.Dp = Dp;
+    input.Hub_flag = Hub_flag;
+    input.Dh = Dh;
+    input.Duct_flag = Duct_flag;
+    input.Dd = Dd;
+    input.Cd = Cd;
+    
+    input.part2 = '叶片切面参数';
+    input.Nx = Nx;
+    input.ChordMethod = ChordMethod;
+    input.Meanline_flag = Meanline_flag;
+    input.Thickness_flag = Thickness_flag;
+    input.rx = rx;
+    input.CDp_x = CDp_x;
+    input.Meanline_x = Meanline_x;
+    input.Thickness_x = Thickness_x;
+    input.CL_x = CL_x;
+    input.T0oDp_x = T0oDp_x;
+    
+    input.part3 = '外部环境参数';
+    input.Ni = Ni;
+    input.rho = rho;
+    input.ri = ri;
+    input.VA_i = VA_i;
+    input.VT_i = VT_i;
+    
+    input.part4 = '涵道相关参数';
+    input.TdoT = TdoT;
+    input.CDd = CDd;
+    
+    input.part5 = '其他参数与工具';
+    input.Analyze_flag = Analyze_flag;
+    input.Geometry_flag = Geometry_flag;
+    input.Coordinate_flag = Coordinate_flag;
+    input.Printing_flag = Printing_flag;
+    input.Mp = Mp;
+    input.Np = Np;
+    input.Nd = Nd;
+    input.ITER = ITER;
+    
+    % 将所有项目信息封装至结构体数组pt中
+    pt.filename = filename;
+    pt.date = date;
+    pt.input = input;
+    pt.design = [];
+    pt.geometry = [];
+    pt.states = [];
+    
+    % 保存
+    save(filename,'pt');
+end
+
+function SaveCopyAs(~,~)
+    global pt;
+    global SpecificationsValues FlagsValues Property1Values rx_in...
+           CDp_x_in Meanline_x_in Thickness_x_in CL_x_in T0oDp_x_in...
+           Property2Values ri_in VA_i_in VT_i_in DuctValues ToolsValues...
+           FilenameValues;
+    filename = get(FilenameValues,'value');
+    
+    % 子栏“螺旋桨规格”中的输入值
+    N = get(SpecificationsValues(1),'value');       % 电机转速(RPM)
+    VS = get(SpecificationsValues(2),'value');      % 行进速度(m/s)
+    T = get(SpecificationsValues(3),'value');       % 总升力(N)
+    Z = get(SpecificationsValues(4),'value');       % 叶片数量
+    Dp = get(SpecificationsValues(5),'value');      % 叶片直径(m)
+    Hub_flag = get(FlagsValues(1),'value');         % 设计中是否加入桨毂？
+    Dh = get(SpecificationsValues(6),'value');      % 桨毂直径(m)
+    Duct_flag = get(FlagsValues(2),'value');        % 设计中是否加入涵道？
+    Dd = get(SpecificationsValues(7),'value');      % 涵道直径(m)
+    Cd = get(SpecificationsValues(8),'value');      % 涵道弦长(m)
+    
+    % 子栏“叶片切面参数”中的输入值
+    Nx = get(Property1Values(1),'value');           % 切面数量
+    ChordMethod = get(Property1Values(2),'value');  % 设计方法
+    Meanline_flag = get(FlagsValues(3),'value');    % 凸缘线是否同一？
+    Thickness_flag = get(FlagsValues(4),'value');   % 叶型是否同一？
+    rx = zeros(Nx,1);                               % 径向位置
+    CDp_x = zeros(Nx,1);                            % 阻力系数
+    Meanline_x = cell(Nx,1);                        % 凸缘线
+    Thickness_x = cell(Nx,1);                       % 叶型
+    CL_x = zeros(Nx,1);                             % 升力系数
+    T0oDp_x = zeros(Nx,1);                          % 厚径比
+    for index = 1 : Nx
+        rx(index) = get(rx_in(index),'value');
+        CDp_x(index) = get(CDp_x_in(index),'value');
+        Meanline_x{index} = get(Meanline_x_in(index),'value');
+        Thickness_x{index} = get(Thickness_x_in(index),'value');
+        CL_x(index) = get(CL_x_in(index),'value');
+        T0oDp_x(index) = get(T0oDp_x_in(index),'value');
+    end    
+    
+    % 子栏“外部环境参数”中的输入量
+    Ni = get(Property2Values(1),'value');           % 坐标数量
+    rho = get(Property2Values(2),'value');          % 流体密度
+    ri = zeros(Ni,1);                               % 径向位置
+    VA_i = zeros(Ni,1);                             % 轴向来流速度
+    VT_i = zeros(Ni,1);                             % 切向来流速度
+    for index = 1 : Ni
+        ri(index) = get(ri_in(index),'value');
+        VA_i(index) = get(VA_i_in(index),'value');
+        VT_i(index) = get(VT_i_in(index),'value');
+    end    
+    
+    % 子栏“涵道相关参数”中的输入量
+    TdoT = get(DuctValues(1),'value');              % 升力比重
+    CDd = get(DuctValues(2),'value');               % 阻力系数
+    
+    % 子栏“其他参数与工具”中的输入量
+    Analyze_flag = get(FlagsValues(5),'value');     % 是否绘制性能曲线？
+    Geometry_flag = get(FlagsValues(6),'value');    % 是否绘制演示模型？
+    Coordinate_flag = get(FlagsValues(7),'value');  % 是否输出点坐标？
+    Printing_flag = get(FlagsValues(8),'value');    % 是否输出stl文件？
+    Mp = get(ToolsValues(1),'value');               % 叶片控制点数量
+    Np = get(ToolsValues(2),'value');               % 叶片切向段数量
+    Nd = get(ToolsValues(3),'value');               % 涵道涡流环数量
+    ITER = get(ToolsValues(4),'value');             % 最大迭代次数
+    
+    % 将GUI界面的输入值保存至结构体数组input
+    input.part1 = '螺旋桨规格';
+    input.N = N;
+    input.VS = VS;
+    input.T = T;
+    input.Z = Z;
+    input.Dp = Dp;
+    input.Hub_flag = Hub_flag;
+    input.Dh = Dh;
+    input.Duct_flag = Duct_flag;
+    input.Dd = Dd;
+    input.Cd = Cd;
+    
+    input.part2 = '叶片切面参数';
+    input.Nx = Nx;
+    input.ChordMethod = ChordMethod;
+    input.Meanline_flag = Meanline_flag;
+    input.Thickness_flag = Thickness_flag;
+    input.rx = rx;
+    input.CDp_x = CDp_x;
+    input.Meanline_x = Meanline_x;
+    input.Thickness_x = Thickness_x;
+    input.CL_x = CL_x;
+    input.T0oDp_x = T0oDp_x;
+    
+    input.part3 = '外部环境参数';
+    input.Ni = Ni;
+    input.rho = rho;
+    input.ri = ri;
+    input.VA_i = VA_i;
+    input.VT_i = VT_i;
+    
+    input.part4 = '涵道相关参数';
+    input.TdoT = TdoT;
+    input.CDd = CDd;
+    
+    input.part5 = '其他参数与工具';
+    input.Analyze_flag = Analyze_flag;
+    input.Geometry_flag = Geometry_flag;
+    input.Coordinate_flag = Coordinate_flag;
+    input.Printing_flag = Printing_flag;
+    input.Mp = Mp;
+    input.Np = Np;
+    input.Nd = Nd;
+    input.ITER = ITER;
+    
+    % 将所有项目信息封装至结构体数组pt中
+    pt.filename = filename;
+    pt.date = date;
+    pt.input = input;
+    pt.design = [];
+    pt.geometry = [];
+    pt.states = [];
+    
+    % 目前导入和另存为完成后，屏幕焦点会回到matlab，这个问题需要解决
+    uisave('pt',[filename,'-copy']);
+end
+
