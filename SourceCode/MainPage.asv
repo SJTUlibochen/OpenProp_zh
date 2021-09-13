@@ -1388,7 +1388,6 @@ function Save(~,~)
             SaveCopyAs;
         else
             % 选择“取消操作”，退出
-            % 这里使用return返回到函数Execute后，仍会继续进行计算和绘图工作
             return
         end    
     end
@@ -1752,7 +1751,8 @@ function ResultPage
     % 将新生成的结果标签页添加至工具栏的“标签页”子栏下
     TabPageMenu(tabpageamount) = uimenu('parent',Menu(3),...
                                         'text',tabpagename,...
-                                        'menuselectedfcn',@DeleteTab);
+                                        'menuselectedfcn',...
+                                        {@DeleteTab,tabpageamount});
                                             
     %% 新标签页中的GUI元素
     % 生成DesignResult中的网格空间
@@ -2158,26 +2158,15 @@ function DeleteTab(hObject,~)
     for index = 1 : tabpageamount
         tabpagename{index} = get(tabpage(index),'title');
     end 
-    menutabpagename = get(hObject,'text');
-    disp(tabpagename{3});
-    disp(menutabpagename);
-    if find(ismember(tabpagename,menutabpagename))
+    menutabpagename = get(hObject,'title');
+    if ismember(tabpagename,menutabpagename)
         % “标签页”菜单下有与标签页相对应的项
-        confirmation = sprintf('确定要删除当前标签页吗？');
+        index = ismember(tabpagename,menutabpagename);
+        delete(tabpage(index));
+        confirmation = sprintf('确认删除当前标签页吗？');
         DeleteSelection = uiconfirm(Fig_Main,confirmation,'删除确认',...
-                                    'options',{'确定','取消'});
-        if strcmp(DeleteSelection,'确定')
-            index = ismember(tabpagename,menutabpagename);
-            delete(tabpage(index));
-            % 同时删除自身
-            delete(hObject);
-            % 切换至“仅进行叶片设计”
-            set(Tabs,'selectedtab',tabpage(1));
-        else
-            return
-        end    
+                                    'options',{'确认','取消'});
     else
-        error = sprintf('标签页不匹配，请检查！');
-        uialert(Fig_Main,error,'删除失败');
+        
     end    
 end
