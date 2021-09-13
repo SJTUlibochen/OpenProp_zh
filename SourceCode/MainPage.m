@@ -1,6 +1,6 @@
 % 该程序负责OpenProp中文版主界面GUI的生成
 %% 主界面
-function NewGUI
+function MainPage
     %% 前处理
     clear variables;
     clear global;
@@ -1620,5 +1620,503 @@ function SaveCopyAs(~,~)
     
     % 目前导入和另存为完成后，屏幕焦点会回到matlab，这个问题需要解决
     uisave('pt',[filename,'-copy']);
+end
+
+function Execute(hObject,ED)
+    global PlotsPanels NumbersValues;
+    global pt
+    %% 保存界面数据
+    SaveData;
+    %% 生成新界面
+    ResultPage;
+    %% 进行数据转换
+    Xr = pt.input.Xr;
+    XCdp = pt.input.XCdp;
+    XCLmax = pt.input.XCLmax;
+    XCpoDp = pt.input.XCpoDp;
+    Xt0oDp = pt.input.Xt0oDp;
+    skew0 = pt.input.skew0;
+    rake0 = pt.input.rake0;
+    ri = pt.input.ri;
+    VAI = pt.input.VAI;
+    VTI = pt.input.VTI;
+    Propeller_flag = pt.input.Propeller_flag;
+    Analyze_flag = pt.input.Analyze_flag;
+    %% 通过EppsOptimizer函数得到pt.design的值
+    pt.design = EppsOptimizer(pt.input);
+    %计算螺旋桨的扭矩，其中CQ为扭矩系数
+    pt.design.Q = pt.design.CQ * 0.5 * pt.input.rho * pt.input.Vs^2 * pi*pt.input.Dp^2/4 * pt.input.Dp/2; % [Nm]  torque
+    %计算螺旋桨的转速
+    omega = 2*pi*pt.input.N/60; % [rad/s]
+    %计算螺旋桨消耗的功率
+    pt.design.P = pt.design.Q * omega;
+    if Propeller_flag == 1
+        set(NumbersValues(7),'value',pt.design.Js);
+        set(NumbersValues(8),'value',pt.design.KT);
+        set(NumbersValues(10),'value',pt.design.KQ);
+        set(NumbersValues(13),'value',pt.design.EFFY);
+        set(NumbersValues(14),'value',pt.design.ADEFFY);
+    else
+        set(NumbersValues(7),'value',pi/pt.design.L);
+        set(NumbersValues(8),'value',' ');
+        set(NumbersValues(10),'value',' ');
+        set(NumbersValues(13),'value',' ');
+        set(NumbersValues(14),'value',' ');
+    end
+    set(NumbersValues(1),'value',pt.input.Vs);
+    set(NumbersValues(2),'value',pt.input.N);
+    set(NumbersValues(3),'value',pt.input.Dp);
+    set(NumbersValues(4),'value',pt.input.Thrust);
+    set(NumbersValues(5),'value',pt.design.Q);
+    set(NumbersValues(6),'value',pt.design.P);
+    set(NumbersValues(9),'value',pt.design.CT);
+    set(NumbersValues(11),'value',pt.design.CQ);
+    set(NumbersValues(12),'value',pt.design.CP);
+    %% 绘制结果报告
+    Make_Reports;
+    %% 绘制图像
+    pt.geometry = Geometry(pt);
+    %% 决定是否输出性能曲线
+    if Analyze_flag
+        pt.states = AnalyzeAuto(pt);
+        set(0,'CurrentFigure',Plots);
+        h = axes('parent',PlotsPanels(15));
+        axes(h);
+        hold on;
+        if Propeller_flag == 1
+            VMIV = pt.design.VMIV;
+            Js_curve = linspace(min(pt.states.Js),max(pt.states.Js),100);
+            EFFY_curve = (Js_curve/(2*pi)) * VMIV .* pchip(pt.states.Js,pt.states.KT,Js_curve)./pchip(pt.states.Js,pt.states.KQ,Js_curve); 
+            % Efficiency (green squares)
+            plot(Js_curve,EFFY_curve,'-','LineWidth',2,'Color',[0 0.8 0])
+            Heffy = plot(pt.states.Js,pt.states.EFFY,'sk','MarkerSize',5,'LineWidth',1,'MarkerFaceColor',[0 0.8 0]); 
+            % Thrust coefficient (blue diamonds)
+            plot(pt.states.Js,pt.states.KT,'b-','LineWidth',2)
+            Hkt   = plot(pt.states.Js,pt.states.KT,'dk','MarkerSize',5,'LineWidth',1,'MarkerFaceColor','b');
+            % Torque coefficient (red circles)
+            plot(pt.states.Js,10*pt.states.KQ,'r-','LineWidth',2)    
+            Hkq = plot(pt.states.Js,10*pt.states.KQ,'ok','MarkerSize',5,'LineWidth',1,'MarkerFaceColor','r');
+            % Design point
+            plot(pt.design.Js*[1 1],[0 2],'k--','LineWidth',1);
+            xlabel('Js','FontSize',16,'FontName','Times'), 
+            ylabel('KT, 10*KQ, EFFY','FontSize',16,'FontName','Times')
+            axis([min(pt.states.Js) max(pt.states.Js) 0 0.9])
+            set(gca,'FontSize',14,'FontName','Times');
+            box on, grid on,
+            ylimits = get(gca,'Ylim');
+            set(gca,'Ylim', [0  max(1,ylimits(2)) ] );
+        else
+            % Power coefficient (blue dots)
+            plot(pt.states.L,-pt.states.CP,'b.-','LineWidth',2,'MarkerSize',12)
+            % Design point
+            plot(pt.design.L*[1 1],[0 0.6],'k--','LineWidth',1);
+            % % Betz limit
+            % plot([0 ceil(max(pt.states.L))],(16/27)*[1 1],'k--','LineWidth',1);
+            xlabel('L','FontSize',16,'FontName','Times'), 
+            ylabel('CP','FontSize',16,'FontName','Times'),
+            set(gca,'Ytick',[0:0.1:0.6])
+            axis([0 ceil(max(pt.states.L))  0 0.6])
+            set(gca,'FontSize',14,'FontName','Times');
+            box on, grid on,
+        end
+    end
+end
+
+%% 生成结果界面
+function ResultPage
+    global pt;
+    global Tabs TabPageStrings TabPageMenu Menu;
+    global Filename NumbersValues PlotsValues PlotsStrings PlotsPanels coordinate;
+    global zhfontsize subcolumnfontsize numfontsize;
+    global lc1_1 lc1_2 lc2_1 lc2_2 lc3_1 lc3_2 lc4_1 lc4_2;
+    %姜红[0.933333 0.721568 0.764705]；隐红灰[0.709803 0.596078 0.631372]
+    %枇杷黄[0.988235 0.631372 0.023529]；蛋白石绿[0.341176 0.584313 0.447058]
+    %星蓝[0.576470 0.709803 0.811764]；山梗紫[0.380392 0.392156 0.623529]
+    lc1_1 = [0.047059 0.925490 0.866667];       %#0CECDD
+    lc1_2 = [1.000000 0.952941 0.219608];       %#FFF338
+    lc2_1 = [1.000000 0.403921 0.905882];       %#FF67E7
+    lc2_2 = [0.768627 0.000000 1.000000];       %#C400FF
+    lc3_1 = [0.627451 0.235294 0.470588];       %#A03C78
+    lc3_2 = [0.929412 0.556863 0.486275];       %#ED8E7C
+    lc4_1 = [0.803921 0.952941 0.635294];       %#CDF3A2
+    lc4_2 = [0.576471 0.850980 0.639216];       %#93D9A3
+    %% 生成主界面上的一个新标签页
+    filename = get(Filename,'value');
+    DesignResult = uitab('parent',Tabs,...
+                         'title',[filename,'的设计结果']);
+    %切换至新生成的结果标签页
+    set(Tabs,'selectedtab',DesignResult);
+    %将新生成的结果标签页添加至工具栏的“标签页”子栏下
+    TabPageStrings{length(TabPageStrings)+1} = [filename,'的设计结果'];
+    TabPageMenu(length(TabPageMenu)+1) = uimenu('parent',Menu(2),...
+                                                'text',TabPageStrings{end});
+    %% 生成DesignResult中的网格空间及空间中的各栏目
+    %生成DesignResult中1*2的网格空间
+    DesignResultGrid = uigridlayout(DesignResult,[1 2],...
+                                    'columnwidth',{'2x','7x'});
+    %生成“数值结果”栏
+    Numbers = uipanel('parent',DesignResultGrid,...
+                      'title','数值结果',...
+                      'titleposition','centertop',...
+                      'fontsize',subcolumnfontsize,...
+                      'fontweight','bold');
+    %生成“图像结果”栏
+    Plots = uipanel('parent',DesignResultGrid,...
+                    'title','图像结果',...
+                    'titleposition','centertop',...
+                    'fontsize',subcolumnfontsize,...
+                    'fontweight','bold');
+    %% “数值结果”子栏中的内容
+    %生成Numbers中14*2的网格空间
+    NumbersGrid = uigridlayout(Numbers,[14 2]);
+    %Numbers中的参数
+    NumbersStrings = {'装置行进速度：' '螺旋桨转速：' '螺旋桨直径：' '装置总推力：' '装置总扭矩：' '装置总功率：'...
+                      '进速系数：' '推力系数(叶梢速度)：' '推力系数(行进速度)：' '扭矩系数：' '扭矩系数：' '功率系数：'...
+                      'EFFY：' 'ADEFFY：'};
+    NumbersTips = {'Vs' 'N' 'Dp' 'Thrust' 'Torque' 'Power'...
+                   'Js' 'KT' 'CT' 'KQ' 'CQ' 'CP'...
+                   'EFFY' 'ADEFFY'};
+    %利用循环绘制14行
+    for index = 1 : length(NumbersStrings)
+        NumbersTexts(index) = uilabel('parent',NumbersGrid,...
+                                      'text',NumbersStrings{index},...
+                                      'horizontalalignment','left',...
+                                      'verticalalignment','center',...
+                                      'tooltip',NumbersTips{index},...
+                                      'fontsize',zhfontsize);
+        NumbersValues(index) = uieditfield(NumbersGrid,'numeric',...
+                                           'fontsize',numfontsize,...
+                                           'horizontalalignment','center',...
+                                           'editable','off',...
+                                           'value',0);
+    end
+    %设置14行的编辑框中的显示形式和单位
+    set(NumbersValues(1),'valuedisplayformat','%.2f m/s');
+    set(NumbersValues(2),'valuedisplayformat','%.1f RPM');
+    set(NumbersValues(3),'valuedisplayformat','%.2f m');
+    set(NumbersValues(4),'valuedisplayformat','%.2f N');
+    set(NumbersValues(5),'valuedisplayformat','%.2f N·m');
+    set(NumbersValues(6),'valuedisplayformat','%.2f W');
+    %% “图像结果”子栏中的内容
+    %生成Plots中1*2的网格空间
+    PlotsGrid = uigridlayout(Plots,[1 2],...
+                             'columnwidth',{'1x','3x'});
+    %选框和图像中需要使用的参数
+    PlotsStrings = {'叶片伸张轮廓曲线(来自输入)'...     %原版'Expanded Blade (input blade)'
+                    '叶片厚度分布曲线(来自输入)'...     %原版'Blade Thickness (input blade)'
+                    '流入速度分布曲线'...       %原版'Inflow Profile'
+                    '效率-螺旋桨直径'...       %原版'Efficiency vs Diameter'
+                    '效率-螺旋桨转速'...       %原版'Efficiency vs Rotation Speed'
+                    '环量分布曲线'...     %原版'Circulation Distribution'
+                    '诱导速度分布曲线'...       %原版'Induced Velocity'
+                    '相关角度的分布曲线'...      %原版'Inflow Angle'
+                    '叶片伸张轮廓曲线(来自设计结果)'...       %原版'Expanded Blade (as designed)'
+                    '叶片厚度分布曲线(来自设计结果)'...       %原版'Blade Thickness (as designed)'
+                    '升力系数分布曲线'...       %原版'Lift Coefficient'
+                    '性能曲线'...      %原版'Performance Curves'
+                    '叶切面二维轮廓'...        %原版'2D Geometry'
+                    '叶片三维模型'};      %原版'3D Geometry'
+    %绘制14行单选按钮
+    PlotsButtonBox = uibuttongroup('parent',PlotsGrid,...
+                                   'title','选择显示的图像',...
+                                   'titleposition','centertop',...
+                                   'fontsize',zhfontsize,...
+                                   'fontweight','bold',...
+                                   'scrollable','on');
+    ButtonBoxGrid = uigridlayout(PlotsButtonBox,[14 1]);
+    for index = 1 : length(PlotsStrings)
+        PlotsValues(index) = uibutton(ButtonBoxGrid,'state',...
+                                      'text',PlotsStrings{index},...
+                                      'fontsize',zhfontsize);
+    end
+    %设置各按钮回调函数
+    set(PlotsValues(1),'valuechangedfcn',@ExpandedBladeInfcn);
+    set(PlotsValues(2),'valuechangedfcn',@BladeThicknessInfcn);
+    set(PlotsValues(3),'valuechangedfcn',@InflowProfilefcn);
+    %“效率-螺旋桨直径”和“效率-螺旋桨转速”两曲线默认关闭
+    set(PlotsValues(4),'enable','off');
+    set(PlotsValues(5),'enable','off');
+    if pt.input.Chord_flag ~= 0
+        %选择弦长优化时，叶片伸张轮廓曲线(来自输入)不可用
+        set(PlotsValues(1),'enable','off');
+    end
+    if pt.input.Analyze_flag == 0
+        %没有选择输出性能曲线时，性能曲线不可用
+        set(PlotsValues(12),'enable','off');
+    end 
+    if pt.input.Geometry_flag == 0
+        %没有选择输出几何图像时，二维轮廓和三维模型不可用
+        set(PlotsValues(13),'enable','off');
+        set(PlotsValues(14),'enable','off');
+    end       
+    %绘制图像面板
+    PlotsPanels = uipanel('parent',PlotsGrid,...
+                          'title','点击左侧按钮显示对应图像',...
+                          'titleposition','centertop',...
+                          'fontsize',zhfontsize,...
+                          'fontweight','bold');
+    PanelGrid = uigridlayout(PlotsPanels,[1 1]);
+    %绘制坐标系
+    coordinate = uiaxes(PanelGrid);
+end
+%% 按下按钮后的回调函数
+%按下“叶片伸张轮廓曲线(来自输入)”后的回调函数
+function ExpandedBladeInfcn(hObject,ED)
+    global PlotsPanels PlotsStrings
+    global PlotsValues
+    global pt;
+    global Fig_Main coordinate Xr_XCpoDp_In_line Xr_XCpoDp_De_line Xr_XCpoDp_In_point;
+    global lc1_1 lc1_2;
+    %% 设置图像面板标题
+    set(PlotsPanels,'title',PlotsStrings{1});
+    %% 设置相应按钮的可用状态
+    %查找被按下的按钮数量
+    [pushedlist,pushednum] = PushedFind;
+    if pushednum == 0
+        %对按钮1进行操作后，若一个按钮也没有被按下
+        %则除4、5外的所有按钮均可用
+        set(PlotsValues,'enable','on');
+        if pt.input.Analyze_flag == 0
+            set(PlotsValues(12),'enable','off');
+        end 
+        if pt.input.Geometry_flag == 0
+            set(PlotsValues(13),'enable','off');
+            set(PlotsValues(14),'enable','off');
+        end
+        set(PlotsValues(4),'enable','off');
+        set(PlotsValues(5),'enable','off');
+    else
+        %对按钮1进行操作后，若存在被按下的按钮
+        %则除1、9外的所有按钮均不可用
+        set(PlotsValues,'enable','off');
+        set(PlotsValues(1),'enable','on');
+        set(PlotsValues(9),'enable','on');
+    end
+    %% 绘制曲线
+    %按下“叶片伸张轮廓曲线(来自输入)”后的回调函数
+    if get(PlotsValues(1),'value')
+        %避免绘图时弹窗
+        set(0,'CurrentFigure',Fig_Main);
+        Dp = pt.input.Dp;
+        Rp = Dp/2;
+        Dhub = pt.input.Dhub;
+        Rhub = Dhub/2;
+        Rhub_oR = Rhub/Rp;
+        Xr = pt.input.Xr;
+        XCpoDp = pt.input.XCpoDp;
+        %XXr是Xr的一个插值序列，利用正弦函数拓展Xr序列
+        XXr = Rhub_oR+(1-Rhub_oR)*(sin((0:60)*pi/(2*60)));
+        %XXCpoDp为通过插值得到的XXr径向位置处的弦径比，该插值方法非matlab自带
+        XXCpoDp = InterpolateChord(Xr,XCpoDp,XXr);
+        %如果此时被按下的按钮不为1，则说明9也被按下
+        if pushednum == 1
+            cla(coordinate);
+        else
+            hold(coordinate,'on');
+        end
+        Xr_XCpoDp_In_line = plot(coordinate,XXr,XXCpoDp,...
+                                 'linewidth',2,...
+                                 'color',lc1_1);
+        hold(coordinate,'on');
+        grid(coordinate,'on');
+        box(coordinate,'on');
+        Xr_XCpoDp_In_point = scatter(coordinate,Xr,XCpoDp,...
+                                     'marker','o',...
+                                     'markeredgecolor',lc1_1,...
+                                     'markerfacecolor',lc1_2,...
+                                     'sizedata',25);
+        xlim(coordinate,'auto');
+        ylim(coordinate,'auto');
+        if pushednum == 1
+            legend(Xr_XCpoDp_In_line,'Cp/Dp');
+        else
+            legend([Xr_XCpoDp_In_line,Xr_XCpoDp_De_line],'Input:Cp/Dp','Design:Cp/Dp');
+            set(PlotsPanels,'title','叶片伸张轮廓曲线(来自输入/来自设计结果)');
+        end    
+        xlabel(coordinate,'r/Rp','fontsize',16,'fontname','Times');
+        ylabel(coordinate,'Cp/Dp','fontsize',16,'fontname','Times');
+    elseif pushednum == 0
+        cla(coordinate);
+        xlabel(coordinate,'');
+        ylabel(coordinate,'');     
+        legend(coordinate,'off');
+        set(PlotsPanels,'title','点击左侧按钮显示对应图像');
+    else
+        delete(Xr_XCpoDp_In_line);
+        delete(Xr_XCpoDp_In_point);
+        legend(Xr_XCpoDp_De_line,'Cp/Dp');
+        set(PlotsPanels,'title',PlotsStrings{9});
+    end
+end
+%按下“叶片厚度分布曲线(来自输入)”后的回调函数
+function BladeThicknessInfcn(hObject,ED)
+    global PlotsPanels PlotsStrings
+    global PlotsValues
+    global pt;
+    global Fig_Main coordinate Xr_Xt0oDp_In_line Xr_Xt0oDp_De_line Xr_Xt0oDp_In_point;
+    global lc2_1 lc2_2;
+    %% 设置图像面板标题
+    set(PlotsPanels,'title',PlotsStrings{2});
+    %% 设置相应按钮的可用状态
+    %查找被按下的按钮数量
+    [pushedlist,pushednum] = PushedFind;
+    if pushednum == 0
+        %对按钮2进行操作后，若一个按钮也没有被按下
+        %则除4、5外的所有按钮均可用
+        set(PlotsValues,'enable','on');
+        if pt.input.Chord_flag ~= 0
+            set(PlotsValues(1),'enable','off');
+        end    
+        if pt.input.Analyze_flag == 0
+            set(PlotsValues(12),'enable','off');
+        end 
+        if pt.input.Geometry_flag == 0
+            set(PlotsValues(13),'enable','off');
+            set(PlotsValues(14),'enable','off');
+        end
+        set(PlotsValues(4),'enable','off');
+        set(PlotsValues(5),'enable','off');
+    else
+        %对按钮2进行操作后，若存在被按下的按钮
+        %则除2、10外的所有按钮均不可用
+        set(PlotsValues,'enable','off');
+        set(PlotsValues(2),'enable','on');
+        set(PlotsValues(10),'enable','on');
+    end
+    %% 绘制曲线
+    if get(PlotsValues(2),'value')
+        %避免绘图时弹窗
+        set(0,'CurrentFigure',Fig_Main);
+        Dp = pt.input.Dp;
+        Rp = Dp/2;
+        Dhub = pt.input.Dhub;
+        Rhub = Dhub/2;
+        Rhub_oR = Rhub/Rp;
+        Xr = pt.input.Xr;
+        Xt0oDp = pt.input.Xt0oDp;
+        %%XXr是Xr的一个插值序列，利用正弦函数拓展Xr序列
+        XXr = Rhub_oR+(1-Rhub_oR)*(sin((0:60)*pi/(2*60)));
+        %XXt0oDp为通过插值得到的XXr径向位置处的厚径比，该插值方法为pchip
+        XXt0oDp = pchip(Xr,Xt0oDp,XXr);
+        %如果此时被按下的按钮不为1，则说明10也被按下
+        if pushednum == 1
+            cla(coordinate);
+        else
+            hold(coordinate,'on');
+        end
+        Xr_Xt0oDp_In_line = plot(coordinate,XXr,XXt0oDp,...
+                                 'linewidth',2,...
+                                 'color',lc2_1);
+        hold(coordinate,'on');
+        grid(coordinate,'on');
+        box(coordinate,'on');
+        Xr_Xt0oDp_In_point = scatter(coordinate,Xr,Xt0oDp,...
+                                     'marker','o',...
+                                     'markeredgecolor',lc2_1,...
+                                     'markerfacecolor',lc2_2,...
+                                     'sizedata',25);
+        xlim(coordinate,'auto');
+        ylim(coordinate,'auto');
+        if pushednum == 1
+            legend(Xr_Xt0oDp_In_line,'t0/Dp');
+        else
+            legend([Xr_Xt0oDp_In_line,Xr_Xt0oDp_De_line],'Input:t0/Dp','Design:t0/Dp');
+            set(PlotsPanels,'title','叶片厚度分布曲线(来自输入/来自设计结果)');
+        end    
+        xlabel(coordinate,'r/Rp','fontsize',16,'fontname','Times');
+        ylabel(coordinate,'t0/Dp','fontsize',16,'fontname','Times');
+    elseif pushednum == 0
+        cla(coordinate);
+        xlabel(coordinate,'');
+        ylabel(coordinate,'');     
+        legend(coordinate,'off');
+        set(PlotsPanels,'title','点击左侧按钮显示对应图像');
+    else
+        delete(Xr_Xt0oDp_In_line);
+        delete(Xr_Xt0oDp_In_point);
+        legend(Xr_Xt0oDp_De_line,'t0/Dp');
+        set(PlotsPanels,'title',PlotsStrings{10});
+    end
+end
+%按下“流入速度分布曲线”后的回调函数
+function InflowProfilefcn(hObject,ED)
+    global PlotsPanels PlotsStrings;
+    global PlotsValues;
+    global pt;
+    global Fig_Main coordinate Xr_VAI_line Xr_VTI_line Xr_UASTAR_line Xr_UTSTAR_line;
+    global lc1_1 lc2_1;
+    %% 设置图像面板标题
+    set(PlotsPanels,'title',PlotsStrings{3});
+    %% 设置相应按钮的可用状态
+    %查找被按下的按钮数量
+    [pushedlist,pushednum] = PushedFind;
+    if pushednum == 0
+        %对按钮3进行操作后，若一个按钮也没有被按下
+        %则除4、5外的所有按钮均可用
+        set(PlotsValues,'enable','on');
+        if pt.input.Chord_flag ~= 0
+            set(PlotsValues(1),'enable','off');
+        end
+        if pt.input.Analyze_flag == 0
+            set(PlotsValues(12),'enable','off');
+        end 
+        if pt.input.Geometry_flag == 0
+            set(PlotsValues(13),'enable','off');
+            set(PlotsValues(14),'enable','off');
+        end
+        set(PlotsValues(4),'enable','off');
+        set(PlotsValues(5),'enable','off');
+    else
+        %对按钮3进行操作后，若存在被按下的按钮
+        %则除3、7外的所有按钮均不可用
+        set(PlotsValues,'enable','off');
+        set(PlotsValues(3),'enable','on');
+        set(PlotsValues(7),'enable','on');
+    end
+    %% 绘制曲线
+    if get(PlotsValues(3),'value')
+        %避免绘图时弹窗
+        set(0,'CurrentFigure',Fig_Main);
+        Xr = pt.input.ri;
+        VAI = pt.input.VAI;
+        VTI = pt.input.VTI;
+        %如果此时被按下的按钮不为1，则说明7也被按下
+        if pushednum == 1
+            cla(coordinate);
+        else
+            hold(coordinate,'on');
+        end
+        Xr_VAI_line = plot(coordinate,Xr,VAI,...
+                           'linewidth',2,...
+                           'color',lc1_1);
+        hold(coordinate,'on');
+        grid(coordinate,'on');
+        box(coordinate,'on');
+        Xr_VTI_line = plot(coordinate,Xr,VTI,...
+                           'linewidth',2,...
+                           'color',lc2_1);
+        xlim(coordinate,'auto');
+        ylim(coordinate,'auto');
+        if pushednum == 1
+            legend([Xr_VAI_line,Xr_VTI_line],'VA/Vs','VT/Vs');
+        else
+            legend([Xr_VAI_line,Xr_VTI_line,Xr_UASTAR_line,Xr_UTSTAR_line],...
+                   'VA/Vs','VT/Vs','Ua*/Vs','Ut*/Vs');
+            set(PlotsPanels,'title','速度分布曲线');
+        end    
+        xlabel(coordinate,'r/Rp','fontsize',16,'fontname','Times');
+        ylabel(coordinate,'V/Vs','fontsize',16,'fontname','Times');
+    elseif pushednum == 0
+        cla(coordinate);
+        xlabel(coordinate,'');
+        ylabel(coordinate,'');     
+        legend(coordinate,'off');
+        set(PlotsPanels,'title','点击左侧按钮显示对应图像');
+    else
+        delete(Xr_VAI_line);
+        delete(Xr_VTI_line);
+        legend([Xr_UASTAR_line,Xr_UTSTAR_line],'Ua*/Vs','Ut*/Vs');
+        set(PlotsPanels,'title',PlotsStrings{7});
+    end    
 end
 
