@@ -248,7 +248,7 @@ function MainPage
                                      'padding',[0 0 0 0]);
     HubPanelUpSubGrid.Layout.Column = [1 2]; 
     FlagsValues(1) = uicheckbox('parent',HubPanelUpSubGrid,...
-                                'text','设计中是否加入桨毂？',...
+                                'text','设计中加入桨毂',...
                                 'value',Hub_flag_def,...
                                 'tooltip','Hub_flag',...
                                 'fontsize',zhfontsize);
@@ -278,7 +278,7 @@ function MainPage
                                      'padding',[0 0 0 0]);
     DuctPanelUpSubGrid.Layout.Column = [1 2]; 
     FlagsValues(2) = uicheckbox('parent',DuctPanelUpSubGrid,...
-                                'text','设计中是否加入涵道？',...
+                                'text','设计中加入涵道',...
                                 'value',Duct_flag_def,...
                                 'tooltip','Duct_flag',...
                                 'fontsize',zhfontsize);
@@ -360,12 +360,12 @@ function MainPage
                                              'Brizzolara2007'},...
                                     'fontsize',numfontsize);
     FlagsValues(3) = uicheckbox('parent',Property1PanelGrid,...
-                                'text','凸缘线是否同一？',...
+                                'text','凸缘线类型保持同一',...
                                 'value',Meanline_flag_def,...
                                 'tooltip','Meanline_flag',...
                                 'fontsize',zhfontsize);
     FlagsValues(4) = uicheckbox('parent',Property1PanelGrid,...
-                                'text','叶型是否同一？',...
+                                'text','厚度类型保持同一',...
                                 'value',Thickness_flag_def,...
                                 'tooltip','Thickness_flag',...
                                 'fontsize',zhfontsize);
@@ -376,7 +376,7 @@ function MainPage
                                    'columnspacing',2,...
                                    'rowspacing',2,...
                                    'padding',[10 10 10 0]);
-    Table1Strings = {'径向位置','阻力系数','凸缘线','叶型','升力系数','厚径比'};
+    Table1Strings = {'径向位置','阻力系数','凸缘线','厚度','升力系数','厚径比'};
     Table1Tips = {'rx','CDp_x','Meanline','Thickness',...
                   'CL_x','T0oDp_x，叶厚与叶片直径之比'};
     for index = 1 : length(Table1Strings)
@@ -555,8 +555,8 @@ function MainPage
     % 复选框面板
     FlagsPanel = uipanel(ToolsGrid);
     FlagsPanelGrid = uigridlayout(FlagsPanel,[2,2]);
-    FlagsStrings = {'是否绘制性能曲线？','是否绘制演示模型？',...
-                    '是否输出点坐标？','是否输出stl文件？'};
+    FlagsStrings = {'绘制性能曲线','渲染演示模型',...
+                    '输出点坐标文档','输出快速成型文件'};
     FlagsTips = {'Analyze_flag','Geometry_flag',...
                  'Coordinate_flag','Printing_flag'};
     FlagsValues_def = {Analyze_flag_def,Geometry_flag_def,...
@@ -877,7 +877,14 @@ function ChangeNx(hObject,ED,Meanline_x_items,Thickness_x_items)
                 set(CL_x_in(index),'editable','on');
                 set(T0oDp_x_in(index),'enable','on');
                 set(T0oDp_x_in(index),'editable','on');
+            elseif strcmp(get(Property1Values(2),'value'),'ConeyPLL')
+                % 设计方法为'ConeyPLL'，允许编辑厚径比
+                set(CL_x_in(index),'enable','off');
+                set(CL_x_in(index),'editable','off');
+                set(T0oDp_x_in(index),'enable','on');
+                set(T0oDp_x_in(index),'editable','on');
             else
+                % 其余设计方法不允许编辑升力系数和厚径比
                 set(CL_x_in(index),'enable','off');
                 set(CL_x_in(index),'editable','off');
                 set(T0oDp_x_in(index),'enable','off');
@@ -936,13 +943,22 @@ function ChangeMethod(hObject,~)
             set(T0oDp_x_in(index),'enable','on');
             set(T0oDp_x_in(index),'editable','on');
         end    
+    elseif strcmp(method,'ConeyPLL')
+        % 设计方法为'ConeyPLL'，允许编辑厚径比
+        for index = 1 : Nx
+            set(CL_x_in(index),'enable','off');
+            set(CL_x_in(index),'editable','off');
+            set(T0oDp_x_in(index),'enable','on');
+            set(T0oDp_x_in(index),'editable','on');
+        end 
     else
+        % 其余设计方法不允许编辑升力系数和厚径比
         for index = 1 : Nx
             set(CL_x_in(index),'enable','off');
             set(CL_x_in(index),'editable','off');
             set(T0oDp_x_in(index),'enable','off');
             set(T0oDp_x_in(index),'editable','off');
-        end   
+        end 
     end
 end
 
@@ -950,7 +966,7 @@ function ConstantMeanline(hObject,~)
     global Property1Values Meanline_x_in;
     Nx = get(Property1Values(1),'value');
     if get(hObject,'value')
-        % 勾选“凸缘线同一”，除第一行外下拉框均不可编辑
+        % 勾选“凸缘线类型保持同一”，除第一行外下拉框均不可编辑
         for index = 2 : Nx
             set(Meanline_x_in(index),'enable','off');
         end    
@@ -965,7 +981,7 @@ function ConstantThickness(hObject,~)
     global Property1Values Thickness_x_in;
     Nx = get(Property1Values(1),'value');
     if get(hObject,'value')
-        % 勾选“叶型同一”，除第一行外下拉框均不可编辑
+        % 勾选“厚度类型保持同一”，除第一行外下拉框均不可编辑
         for index = 2 : Nx
             set(Thickness_x_in(index),'enable','off');
         end    
@@ -981,7 +997,7 @@ function Change1stMeanline(hObject,~)
     Nx = get(Property1Values(1),'value');
     meanline = get(hObject,'value');
     if get(FlagsValues(3),'value')
-        % 勾选“凸缘线同一”，第一行更改后其余诸行一并更改
+        % 勾选“凸缘线类型保持同一”，第一行更改后其余诸行一并更改
         for index = 2 : Nx
             set(Meanline_x_in(index),'value',meanline);
         end
@@ -995,7 +1011,7 @@ function Change1stThickness(hObject,~)
     Nx = get(Property1Values(1),'value');
     thickness = get(hObject,'value');
     if get(FlagsValues(4),'value')
-        % 勾选“叶型同一”，第一行更改后其余诸行一并更改
+        % 勾选“厚度类型保持同一”，第一行更改后其余诸行一并更改
         for index = 2 : Nx
             set(Thickness_x_in(index),'value',thickness);
         end
@@ -1399,21 +1415,21 @@ function Save(~,~)
     T = get(SpecificationsValues(3),'value');       % 总升力(N)
     Z = get(SpecificationsValues(4),'value');       % 叶片数量
     Dp = get(SpecificationsValues(5),'value');      % 叶片直径(m)
-    Hub_flag = get(FlagsValues(1),'value');         % 设计中是否加入桨毂？
+    Hub_flag = get(FlagsValues(1),'value');         % 设计中加入桨毂
     Dh = get(SpecificationsValues(6),'value');      % 桨毂直径(m)
-    Duct_flag = get(FlagsValues(2),'value');        % 设计中是否加入涵道？
+    Duct_flag = get(FlagsValues(2),'value');        % 设计中加入涵道
     Dd = get(SpecificationsValues(7),'value');      % 涵道直径(m)
     Cd = get(SpecificationsValues(8),'value');      % 涵道弦长(m)
     
     % 子栏“叶片切面参数”中的输入值
     Nx = get(Property1Values(1),'value');           % 切面数量
     ChordMethod = get(Property1Values(2),'value');  % 设计方法
-    Meanline_flag = get(FlagsValues(3),'value');    % 凸缘线是否同一？
-    Thickness_flag = get(FlagsValues(4),'value');   % 叶型是否同一？
+    Meanline_flag = get(FlagsValues(3),'value');    % 凸缘线类型保持同一
+    Thickness_flag = get(FlagsValues(4),'value');   % 厚度类型保持同一
     rx = zeros(Nx,1);                               % 径向位置
     CDp_x = zeros(Nx,1);                            % 阻力系数
     Meanline_x = cell(Nx,1);                        % 凸缘线
-    Thickness_x = cell(Nx,1);                       % 叶型
+    Thickness_x = cell(Nx,1);                       % 厚度
     CL_x = zeros(Nx,1);                             % 升力系数
     T0oDp_x = zeros(Nx,1);                          % 厚径比
     for index = 1 : Nx
@@ -1442,10 +1458,10 @@ function Save(~,~)
     CDd = get(DuctValues(2),'value');               % 阻力系数
     
     % 子栏“其他参数与工具”中的输入量
-    Analyze_flag = get(FlagsValues(5),'value');     % 是否绘制性能曲线？
-    Geometry_flag = get(FlagsValues(6),'value');    % 是否绘制演示模型？
-    Coordinate_flag = get(FlagsValues(7),'value');  % 是否输出点坐标？
-    Printing_flag = get(FlagsValues(8),'value');    % 是否输出stl文件？
+    Analyze_flag = get(FlagsValues(5),'value');     % 绘制性能曲线
+    Geometry_flag = get(FlagsValues(6),'value');    % 渲染演示模型
+    Coordinate_flag = get(FlagsValues(7),'value');  % 输出点坐标文档
+    Printing_flag = get(FlagsValues(8),'value');    % 输出快速成型文件
     Mp = get(ToolsValues(1),'value');               % 叶片控制点数量
     Np = get(ToolsValues(2),'value');               % 叶片切向段数量
     Nd = get(ToolsValues(3),'value');               % 涵道涡流环数量
@@ -1523,21 +1539,21 @@ function SaveCopyAs(~,~)
     T = get(SpecificationsValues(3),'value');       % 总升力(N)
     Z = get(SpecificationsValues(4),'value');       % 叶片数量
     Dp = get(SpecificationsValues(5),'value');      % 叶片直径(m)
-    Hub_flag = get(FlagsValues(1),'value');         % 设计中是否加入桨毂？
+    Hub_flag = get(FlagsValues(1),'value');         % 设计中加入桨毂
     Dh = get(SpecificationsValues(6),'value');      % 桨毂直径(m)
-    Duct_flag = get(FlagsValues(2),'value');        % 设计中是否加入涵道？
+    Duct_flag = get(FlagsValues(2),'value');        % 设计中加入涵道
     Dd = get(SpecificationsValues(7),'value');      % 涵道直径(m)
     Cd = get(SpecificationsValues(8),'value');      % 涵道弦长(m)
     
     % 子栏“叶片切面参数”中的输入值
     Nx = get(Property1Values(1),'value');           % 切面数量
     ChordMethod = get(Property1Values(2),'value');  % 设计方法
-    Meanline_flag = get(FlagsValues(3),'value');    % 凸缘线是否同一？
-    Thickness_flag = get(FlagsValues(4),'value');   % 叶型是否同一？
+    Meanline_flag = get(FlagsValues(3),'value');    % 凸缘线类型保持同一
+    Thickness_flag = get(FlagsValues(4),'value');   % 厚度类型保持同一
     rx = zeros(Nx,1);                               % 径向位置
     CDp_x = zeros(Nx,1);                            % 阻力系数
     Meanline_x = cell(Nx,1);                        % 凸缘线
-    Thickness_x = cell(Nx,1);                       % 叶型
+    Thickness_x = cell(Nx,1);                       % 厚度
     CL_x = zeros(Nx,1);                             % 升力系数
     T0oDp_x = zeros(Nx,1);                          % 厚径比
     for index = 1 : Nx
@@ -1566,10 +1582,10 @@ function SaveCopyAs(~,~)
     CDd = get(DuctValues(2),'value');               % 阻力系数
     
     % 子栏“其他参数与工具”中的输入量
-    Analyze_flag = get(FlagsValues(5),'value');     % 是否绘制性能曲线？
-    Geometry_flag = get(FlagsValues(6),'value');    % 是否绘制演示模型？
-    Coordinate_flag = get(FlagsValues(7),'value');  % 是否输出点坐标？
-    Printing_flag = get(FlagsValues(8),'value');    % 是否输出stl文件？
+    Analyze_flag = get(FlagsValues(5),'value');     % 绘制性能曲线
+    Geometry_flag = get(FlagsValues(6),'value');    % 渲染演示模型
+    Coordinate_flag = get(FlagsValues(7),'value');  % 输出点坐标文档
+    Printing_flag = get(FlagsValues(8),'value');    % 输出快速成型文件
     Mp = get(ToolsValues(1),'value');               % 叶片控制点数量
     Np = get(ToolsValues(2),'value');               % 叶片切向段数量
     Nd = get(ToolsValues(3),'value');               % 涵道涡流环数量
