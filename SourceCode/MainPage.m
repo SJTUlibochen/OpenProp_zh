@@ -1634,90 +1634,33 @@ function SaveCopyAs(~,~)
 end
 
 function Execute(~,~)
-    % 前处理
     global pt;
+    global NumbersValues;
+    % 保存当前界面输入值
     Save;
+    % 生成结果标签页
     ResultPage;
     
-    Analyze_flag = pt.input.Analyze_flag;
-    
+    % 进行计算
     pt.design = EppsOptimizer(pt.input);
-    %计算螺旋桨的扭矩，其中CQ为扭矩系数
+    % 计算螺旋桨的扭矩，其中CQ为扭矩系数
     pt.design.Q = pt.design.CQ * 0.5 * pt.input.rho * pt.input.Vs^2 * pi*pt.input.Dp^2/4 * pt.input.Dp/2; % [Nm]  torque
-    %计算螺旋桨的转速
+    % 计算螺旋桨的转速
     omega = 2*pi*pt.input.N/60; % [rad/s]
-    %计算螺旋桨消耗的功率
+    % 计算螺旋桨消耗的功率
     pt.design.P = pt.design.Q * omega;
-    if Propeller_flag == 1
-        set(NumbersValues(7),'value',pt.design.Js);
-        set(NumbersValues(8),'value',pt.design.KT);
-        set(NumbersValues(10),'value',pt.design.KQ);
-        set(NumbersValues(13),'value',pt.design.EFFY);
-        set(NumbersValues(14),'value',pt.design.ADEFFY);
-    else
-        set(NumbersValues(7),'value',pi/pt.design.L);
-        set(NumbersValues(8),'value',' ');
-        set(NumbersValues(10),'value',' ');
-        set(NumbersValues(13),'value',' ');
-        set(NumbersValues(14),'value',' ');
-    end
-    set(NumbersValues(1),'value',pt.input.Vs);
-    set(NumbersValues(2),'value',pt.input.N);
-    set(NumbersValues(3),'value',pt.input.Dp);
-    set(NumbersValues(4),'value',pt.input.Thrust);
-    set(NumbersValues(5),'value',pt.design.Q);
-    set(NumbersValues(6),'value',pt.design.P);
-    set(NumbersValues(9),'value',pt.design.CT);
-    set(NumbersValues(11),'value',pt.design.CQ);
-    set(NumbersValues(12),'value',pt.design.CP);
     
-    Make_Reports;
+    % 将计算结果导入数值结果的编辑框中
+    NumbersValues_def = {pt.input.N,pt.input.VS,pt.input.Dp,pt.input.T,...
+                         pt.design.Q,pt.design.P,pt.design.Js,pt.design.KT,...
+                         pt.design.CT,pt.design.KQ,pt.design.CQ,pt.design.CP,...
+                         pt.design.EFFY,pt.design.ADEFFY};
+    for index = 1 : 14
+        set(NumbersValues(index),'value',NumbersValues_def{index});
+    end                 
     
     pt.geometry = Geometry(pt);
     
-    if Analyze_flag
-        pt.states = AnalyzeAuto(pt);
-        set(0,'CurrentFigure',Plots);
-        h = axes('parent',PlotsPanels(15));
-        axes(h);
-        hold on;
-        if Propeller_flag == 1
-            VMIV = pt.design.VMIV;
-            Js_curve = linspace(min(pt.states.Js),max(pt.states.Js),100);
-            EFFY_curve = (Js_curve/(2*pi)) * VMIV .* pchip(pt.states.Js,pt.states.KT,Js_curve)./pchip(pt.states.Js,pt.states.KQ,Js_curve); 
-            % Efficiency (green squares)
-            plot(Js_curve,EFFY_curve,'-','LineWidth',2,'Color',[0 0.8 0])
-            Heffy = plot(pt.states.Js,pt.states.EFFY,'sk','MarkerSize',5,'LineWidth',1,'MarkerFaceColor',[0 0.8 0]); 
-            % Thrust coefficient (blue diamonds)
-            plot(pt.states.Js,pt.states.KT,'b-','LineWidth',2)
-            Hkt   = plot(pt.states.Js,pt.states.KT,'dk','MarkerSize',5,'LineWidth',1,'MarkerFaceColor','b');
-            % Torque coefficient (red circles)
-            plot(pt.states.Js,10*pt.states.KQ,'r-','LineWidth',2)    
-            Hkq = plot(pt.states.Js,10*pt.states.KQ,'ok','MarkerSize',5,'LineWidth',1,'MarkerFaceColor','r');
-            % Design point
-            plot(pt.design.Js*[1 1],[0 2],'k--','LineWidth',1);
-            xlabel('Js','FontSize',16,'FontName','Times'), 
-            ylabel('KT, 10*KQ, EFFY','FontSize',16,'FontName','Times')
-            axis([min(pt.states.Js) max(pt.states.Js) 0 0.9])
-            set(gca,'FontSize',14,'FontName','Times');
-            box on, grid on,
-            ylimits = get(gca,'Ylim');
-            set(gca,'Ylim', [0  max(1,ylimits(2)) ] );
-        else
-            % Power coefficient (blue dots)
-            plot(pt.states.L,-pt.states.CP,'b.-','LineWidth',2,'MarkerSize',12)
-            % Design point
-            plot(pt.design.L*[1 1],[0 0.6],'k--','LineWidth',1);
-            % % Betz limit
-            % plot([0 ceil(max(pt.states.L))],(16/27)*[1 1],'k--','LineWidth',1);
-            xlabel('L','FontSize',16,'FontName','Times'), 
-            ylabel('CP','FontSize',16,'FontName','Times'),
-            set(gca,'Ytick',[0:0.1:0.6])
-            axis([0 ceil(max(pt.states.L))  0 0.6])
-            set(gca,'FontSize',14,'FontName','Times');
-            box on, grid on,
-        end
-    end
 end
 
 %% 生成结果界面
@@ -1725,7 +1668,7 @@ function ResultPage
     global pt;
     global zhfontsize subcolumnfontsize numfontsize;
     global Menu TabPageMenu Tabs FilenameValues;
-    global PlotsValues PlotsPanel coordinate;
+    global NumbersValues PlotsValues PlotsPanel coordinate;
     
     global linecolor1_1 linecolor1_2 linecolor2_1 linecolor2_2...
            linecolor3_1 linecolor3_2 linecolor4_1 linecolor4_2;
@@ -1776,11 +1719,11 @@ function ResultPage
     % 生成Numbers中的网格空间
     NumbersGrid = uigridlayout(Numbers,[14 2]);
     
-    NumbersStrings = {'电机转速：','行进速度：','总升力：','叶片直径：',...
+    NumbersStrings = {'电机转速：','行进速度：','叶片直径：','总升力：',...
                       '总扭矩：','总功率：','进速系数：','推力系数(叶梢速度)：',...
                       '推力系数(行进速度)：','扭矩系数：','扭矩系数：',...
                       '功率系数：','EFFY：' 'ADEFFY：'};
-    NumbersTips = {'N','VS','T','Dp','Q','P','Js','KT','CT','KQ','CQ',...
+    NumbersTips = {'N','VS','Dp','T','Q','P','Js','KT','CT','KQ','CQ',...
                    'CP','EFFY' 'ADEFFY'};
                
     for index = 1 : length(NumbersStrings)
@@ -1801,8 +1744,8 @@ function ResultPage
     % 设置Numbers编辑框中的显示形式和单位
     set(NumbersValues(1),'valuedisplayformat','%.1f RPM');
     set(NumbersValues(2),'valuedisplayformat','%.2f m/s');
-    set(NumbersValues(3),'valuedisplayformat','%.2f N');
-    set(NumbersValues(4),'valuedisplayformat','%.2f m');
+    set(NumbersValues(3),'valuedisplayformat','%.2f m');
+    set(NumbersValues(4),'valuedisplayformat','%.2f N');
     set(NumbersValues(5),'valuedisplayformat','%.2f N·m');
     set(NumbersValues(6),'valuedisplayformat','%.2f W');
     
@@ -1853,7 +1796,7 @@ function ResultPage
                                       'fontsize',zhfontsize);
     end    
     
-    % 设置各按钮回调函数
+    % 设置输入按钮的回调函数
     set(PlotsValues(1),'valuechangedfcn',{@CLInputfcn,PlotsStrings});
     set(PlotsValues(2),'valuechangedfcn',{@ThicknessInputfcn,PlotsStrings});
     set(PlotsValues(3),'valuechangedfcn',{@InflowProfilefcn,PlotsStrings});
@@ -1872,9 +1815,18 @@ function ResultPage
         set(PlotsValues(11),'enable','off');
         set(PlotsValues(12),'enable','off');
     end       
+    
+    % 设置输出按钮的回调函数
+    set(PlotsValues(4),'valuechangedfcn',{@Circulationfcn,PlotsStrings});
+    set(PlotsValues(5),'valuechangedfcn',{@InducedVelocityfcn,PlotsStrings});
+    set(PlotsValues(6),'valuechangedfcn',{@InflowAnglefcn,PlotsStrings});
+    set(PlotsValues(7),'valuechangedfcn',{@ExpandedBladefcn,PlotsStrings});
+    set(PlotsValues(8),'valuechangedfcn',{@ThicknessResultfcn,PlotsStrings});
+    set(PlotsValues(9),'valuechangedfcn',{@CLResultfcn,PlotsStrings});
+    set(PlotsValues(10),'valuechangedfcn',@Performancefcn);
 end
-
-%% 按钮的回调函数
+    
+%% 输入按钮的回调函数
 % “升力系数分布曲线”的回调函数
 function CLInputfcn(hObject,~,PlotsStrings)
     global pt;
@@ -1946,7 +1898,7 @@ function CLInputfcn(hObject,~,PlotsStrings)
             legend(CL_Input_line,'CL');
         else
             legend([CL_Input_line,CL_Result_line],'Input:CL','Design:CL');
-            set(PlotsPanels,'title','升力系数分布曲线(来自输入/来自结果)');
+            set(PlotsPanel,'title','升力系数分布曲线(来自输入/来自结果)');
         end    
         
         % 设置坐标轴标签
@@ -1958,7 +1910,7 @@ function CLInputfcn(hObject,~,PlotsStrings)
         xlabel(coordinate,'');
         ylabel(coordinate,'');     
         legend(coordinate,'off');
-        set(PlotsPanels,'title','点击左侧按钮显示对应图像');
+        set(PlotsPanel,'title','点击左侧按钮显示对应图像');
     else
         delete(CL_Input_line);
         delete(CL_Input_point);
@@ -2146,6 +2098,589 @@ function InflowProfilefcn(hObject,~,PlotsStrings)
         legend([UASTAR_line,UTSTAR_line],'Ua*/Vs','Ut*/Vs');
         set(PlotsPanel,'title',PlotsStrings{5});
     end    
+end
+
+%% 结果按钮的回调函数
+% “环量分布曲线”的回调函数
+function Circulationfcn(hObject,~,PlotsStrings)
+    global pt;
+    global Fig_Main PlotsValues PlotsPanel coordinate;
+    global Gamma_line Gamma_point;
+    global linecolor3_1 linecolor3_2;
+    
+    % 设置图像面板标题
+    set(PlotsPanel,'title',PlotsStrings{4});
+    
+    % 查找被按下的按钮数量
+    [~,pushednum] = PushedFind;
+    if pushednum == 0
+        % 对按钮4进行操作后，若一个按钮也没有被按下，则所有按钮均可用
+        set(PlotsValues,'enable','on');
+        if ~strcmp(pt.input.ChordMethod,'CLmax')
+            set(PlotsValues(1),'enable','off');
+            set(PlotsValues(2),'enable','off');
+        end    
+        if pt.input.Analyze_flag == 0
+            set(PlotsValues(10),'enable','off');
+        end 
+        if pt.input.Geometry_flag == 0
+            set(PlotsValues(11),'enable','off');
+            set(PlotsValues(12),'enable','off');
+        end
+    else
+        % 对按钮4进行操作后，若存在被按下的按钮，则除4外的所有按钮均不可用
+        set(PlotsValues,'enable','off');
+        set(PlotsValues(4),'enable','on');
+    end
+    
+    % 绘制曲线
+    if get(hObject,'value')
+        % 避免绘图时弹窗
+        set(0,'CurrentFigure',Fig_Main);
+        RhoRp = pt.input.Dh/pt.input.Dp;
+        rc = pt.design.RC;
+        Gamma_c = pt.design.G';
+        % rc_expanded是rc的插值序列，外拓了RhoRp和1两个边界值
+        rc_expanded = [RhoRp,rc,1];
+        % Gamma_c_expanded是Gamma_c基于pchip的插值序列
+        Gamma_c_expanded = pchip(rc,Gamma_c,rc_expanded);
+        % 清空图像
+        cla(coordinate);
+        
+        % 绘制环量曲线
+        Gamma_line = plot(coordinate,rc_expanded,Gamma_c_expanded,...
+                          'linewidth',2,...
+                          'color',linecolor3_1);
+                      
+        hold(coordinate,'on');
+        grid(coordinate,'on');
+        box(coordinate,'on');
+        
+        % 绘制环量散点
+        Gamma_point = scatter(coordinate,rc,Gamma_c,...
+                              'marker','o',...
+                              'markeredgecolor',linecolor3_2,...
+                              'markerfacecolor',linecolor3_1,...
+                              'sizedata',25);
+                          
+        % 设置坐标系自动调整
+        xlim(coordinate,'auto');
+        ylim(coordinate,'auto');
+        
+        % 设置坐标轴标签
+        legend(Gamma_line,'τ/2π·Rp·VS');
+        xlabel(coordinate,'rc','fontsize',16,'fontname','Times');
+        ylabel(coordinate,'τ/2π·Rp·Vs','fontsize',16,'fontname','Times');
+    else
+        cla(coordinate);
+        xlabel(coordinate,'');
+        ylabel(coordinate,'');
+        legend(coordinate,'off');
+        set(PlotsPanel,'title','点击左侧按钮显示对应图像');
+    end
+end
+
+% “诱导速度分布曲线”的回调函数
+function InducedVelocityfcn(hObject,~,PlotsStrings)
+    global pt;
+    global Fig_Main PlotsValues PlotsPanel coordinate;
+    global UASTAR_line UTSTAR_line VA_line VT_line UASTAR_point UTSTAR_point;
+    global linecolor3_1 linecolor3_2 linecolor4_1 linecolor4_2;
+     
+    % 设置图像面板标题
+    set(PlotsPanel,'title',PlotsStrings{5});
+    
+    %查找被按下的按钮数量
+    [~,pushednum] = PushedFind;
+    if pushednum == 0
+        % 对按钮5进行操作后，若一个按钮也没有被按下，则所有按钮均可用
+        set(PlotsValues,'enable','on');
+        if ~strcmp(pt.input.ChordMethod,'CLmax')
+            set(PlotsValues(1),'enable','off');
+            set(PlotsValues(2),'enable','off');
+        end    
+        if pt.input.Analyze_flag == 0
+            set(PlotsValues(10),'enable','off');
+        end 
+        if pt.input.Geometry_flag == 0
+            set(PlotsValues(11),'enable','off');
+            set(PlotsValues(12),'enable','off');
+        end
+    else
+        % 对按钮5进行操作后，若存在被按下的按钮，则除3、5外的所有按钮均不可用
+        set(PlotsValues,'enable','off');
+        set(PlotsValues(3),'enable','on');
+        set(PlotsValues(5),'enable','on');
+    end
+    
+    % 绘制曲线
+    if get(hObject,'value')
+        % 避免绘图时弹窗
+        set(0,'CurrentFigure',Fig_Main);
+        rc = pt.design.RC;
+        UASTAR = pt.design.UASTAR;
+        UTSTAR = pt.design.UTSTAR;
+        % 如果此时被按下的按钮不为一个，则说明3也被按下
+        if pushednum == 1
+            cla(coordinate);
+        else
+            hold(coordinate,'on');
+        end
+        
+        grid(coordinate,'on');
+        box(coordinate,'on');
+        % 绘制轴向诱导速度曲线
+        UASTAR_line = plot(coordinate,rc,UASTAR,...
+                           'linewidth',2,...
+                           'color',linecolor3_1);
+        hold(coordinate,'on');
+        
+        % 绘制轴向诱导速度散点
+        UASTAR_point = scatter(coordinate,rc,UASTAR,...
+                               'marker','o',...
+                               'markeredgecolor',linecolor3_2,...
+                               'markerfacecolor',linecolor3_1,...
+                               'sizedata',25);
+        hold(coordinate,'on');
+        
+        % 绘制切向诱导速度曲线
+        UTSTAR_line = plot(coordinate,rc,UTSTAR,...
+                           'linewidth',2,...
+                           'color',linecolor4_1);
+        hold(coordinate,'on');
+        
+        % 绘制切向诱导速度散点
+        UTSTAR_point = scatter(coordinate,rc,UTSTAR,...
+                               'marker','o',...
+                               'markeredgecolor',linecolor4_2,...
+                               'markerfacecolor',linecolor4_1,...
+                               'sizedata',25);
+                           
+        % 设置坐标系自动调整
+        xlim(coordinate,'auto');
+        ylim(coordinate,'auto');
+        
+        if pushednum == 1
+            legend([UASTAR_line,UTSTAR_line],'Ua*/Vs','Ut*/Vs');
+        else
+            legend([VA_line,VT_line,UASTAR_line,UTSTAR_line],...
+                   'VA/Vs','VT/Vs','Ua*/Vs','Ut*/Vs');
+            set(PlotsPanel,'title','速度分布曲线');
+        end    
+        
+        % 设置坐标轴标签
+        xlabel(coordinate,'r/Rp','fontsize',16,'fontname','Times');
+        ylabel(coordinate,'Velocity','fontsize',16,'fontname','Times');
+    elseif pushednum == 0
+        cla(coordinate);
+        xlabel(coordinate,'');
+        ylabel(coordinate,'');     
+        legend(coordinate,'off');
+        set(PlotsPanel,'title','点击左侧按钮显示对应图像');
+    else
+        delete(UASTAR_line);
+        delete(UTSTAR_line);
+        delete(UASTAR_point);
+        delete(UTSTAR_point);
+        legend([VA_line,VT_line],'VA/Vs','VT/Vs');
+        set(PlotsPanel,'title',PlotsStrings{3});
+    end
+end
+
+% “相关角度的分布曲线”的回调函数
+function InflowAnglefcn(hObject,~,PlotsStrings)
+    global pt;
+    global Fig_Main PlotsValues PlotsPanel coordinate;
+    global Beta_line BetaI_line Beta_point BetaI_point;
+    global linecolor2_1 linecolor2_2 linecolor4_1 linecolor4_2;
+    
+    % 设置图像面板标题
+    set(PlotsPanel,'title',PlotsStrings{6});
+    
+    % 查找被按下的按钮数量
+    [~,pushednum] = PushedFind;
+    if pushednum == 0
+        % 对按钮6进行操作后，若一个按钮也没有被按下，则所有按钮均可用
+        set(PlotsValues,'enable','on');
+        if ~strcmp(pt.input.ChordMethod,'CLmax')
+            set(PlotsValues(1),'enable','off');
+            set(PlotsValues(2),'enable','off');
+        end    
+        if pt.input.Analyze_flag == 0
+            set(PlotsValues(10),'enable','off');
+        end 
+        if pt.input.Geometry_flag == 0
+            set(PlotsValues(11),'enable','off');
+            set(PlotsValues(12),'enable','off');
+        end
+    else
+        % 对按钮6进行操作后，若存在被按下的按钮，则除6外的所有按钮均不可用
+        set(PlotsValues,'enable','off');
+        set(PlotsValues(6),'enable','on');
+    end
+    
+    % 绘制图像
+    if get(hObject,'value')
+        % 避免绘图时弹窗
+        set(0,'CurrentFigure',Fig_Main);
+        RhoRp = pt.input.Dh/pt.input.Dp;
+        rc = pt.design.RC;
+        Beta_c = atand(pt.design.TANBC);
+        BetaI_c = atand(pt.design.TANBIC);
+        % rc_expanded是rc的插值序列，外拓了RhoRp和1两个边界值
+        rc_expanded = [RhoRp,rc,1];
+        % Beta_c_expanded和BetaI_c_expanded是Beta_c和BetaI_c基于spline的插值序列
+        Beta_c_expanded = spline(rc,Beta_c,rc_expanded);
+        BetaI_c_expanded = spline(rc,BetaI_c,rc_expanded);
+        
+        cla(coordinate);
+        grid(coordinate,'on');
+        box(coordinate,'on');
+        
+        % 绘制进角曲线
+        Beta_line = plot(coordinate,rc_expanded,Beta_c_expanded,...
+                            'linewidth',2,...
+                            'color',linecolor2_1);
+        hold(coordinate,'on');
+        
+        % 设置进角散点
+        Beta_point = scatter(coordinate,rc,Beta_c,...
+                             'marker','o',...
+                             'markeredgecolor',linecolor2_1,...
+                             'markerfacecolor',linecolor2_2,...
+                             'sizedata',25);
+        hold(coordinate,'on');
+        
+        % 设置水动力螺旋角曲线
+        BetaI_line = plot(coordinate,rc_expanded,BetaI_c_expanded,...
+                          'linewidth',2,...
+                          'color',linecolor4_1);
+        hold(coordinate,'on');
+        
+        % 设置水动力螺旋角散点
+        BetaI_point = scatter(coordinate,rc,BetaI_c,...
+                              'marker','o',...
+                              'markeredgecolor',linecolor4_1,...
+                              'markerfacecolor',linecolor4_2,...
+                              'sizedata',25);
+                          
+        % 设置坐标系自动调整
+        xlim(coordinate,'auto');
+        ylim(coordinate,'auto');
+        
+        % 设置坐标轴标签
+        legend([Beta_line,BetaI_line],'β','βi');
+        xlabel(coordinate,'r/Rp','fontsize',16,'fontname','Times');
+        ylabel(coordinate,'Angle','fontsize',16,'fontname','Times');
+    else
+        cla(coordinate);
+        xlabel(coordinate,'');
+        ylabel(coordinate,'');
+        legend(coordinate,'off');
+        set(PlotsPanel,'title','点击左侧按钮显示对应图像');
+    end
+end
+
+% “伸张轮廓曲线”的回调函数
+function ExpandedBladefcn(hObject,~,PlotsStrings)
+    global pt;
+    global Fig_Main PlotsValues PlotsPanel coordinate;
+    global CpoDp_line CpoDp_point;
+    global linecolor3_1 linecolor3_2;
+    
+    % 设置图像面板标题
+    set(PlotsPanel,'title',PlotsStrings{7});
+    
+    % 查找被按下的按钮数量
+    [~,pushednum] = PushedFind;
+    if pushednum == 0
+        % 对按钮7进行操作后，若一个按钮也没有被按下，则所有按钮均可用
+        set(PlotsValues,'enable','on');
+        if ~strcmp(pt.input.ChordMethod,'CLmax')
+            set(PlotsValues(1),'enable','off');
+            set(PlotsValues(2),'enable','off');
+        end    
+        if pt.input.Analyze_flag == 0
+            set(PlotsValues(10),'enable','off');
+        end 
+        if pt.input.Geometry_flag == 0
+            set(PlotsValues(11),'enable','off');
+            set(PlotsValues(12),'enable','off');
+        end
+    else
+        % 对按钮7进行操作后，若存在被按下的按钮，则除7外的所有按钮均不可用
+        set(PlotsValues,'enable','off');
+        set(PlotsValues(7),'enable','on');
+    end
+    
+    % 绘制图像
+    if get(hObject,'value')
+        % 避免绘图时弹窗
+        set(0,'CurrentFigure',Fig_Main);
+        RhoRp = pt.input.Dh/pt.input.Dp;
+        rc = pt.design.RC;
+        CpoDp_c = pt.design.CpoDp;
+        rc_expanded = RhoRp+(1-RhoRp)*(sin((0:60)*pi/(2*60)));
+        CpoDp_c_expanded = InterpolateChord(rc,CpoDp_c,rc_expanded);
+        % 清楚图像
+        cla(coordinate);
+        
+        grid(coordinate,'on');
+        box(coordinate,'on');
+        % 绘制伸张轮廓曲线
+        CpoDp_line = plot(coordinate,rc_expanded,CpoDp_c_expanded,...
+                          'linewidth',2,...
+                          'color',linecolor3_1);
+        hold(coordinate,'on');
+        
+        % 绘制伸张轮廓散点
+        CpoDp_point = scatter(coordinate,rc,CpoDp_c,...
+                              'marker','o',...
+                              'markeredgecolor',linecolor3_1,...
+                              'markerfacecolor',linecolor3_2,...
+                              'sizedata',25);
+                          
+        % 设置坐标系自动调整
+        xlim(coordinate,'auto');
+        ylim(coordinate,'auto');
+        
+        % 设置坐标轴标签
+        legend(CpoDp_line,'Cp/Dp');
+        xlabel(coordinate,'rc','fontsize',16,'fontname','Times');
+        ylabel(coordinate,'Cp/Dp','fontsize',16,'fontname','Times');
+    else
+        cla(coordinate);
+        xlabel(coordinate,'');
+        ylabel(coordinate,'');     
+        legend(coordinate,'off');
+        set(PlotsPanel,'title','点击左侧按钮显示对应图像');
+    end
+end
+
+% “厚径比分布曲线”的回调函数
+function ThicknessResultfcn(hObject,~,PlotsStrings)
+    global pt;
+    global Fig_Main PlotsValues PlotsPanel coordinate;
+    global T0oDp_Input_line T0oDp_Result_line T0oDp_Result_point;
+    global linecolor4_1 linecolor4_2;
+    
+    % 设置图像面板标题
+    set(PlotsPanel,'title',PlotsStrings{8});
+    
+    % 查找被按下的按钮数量
+    [~,pushednum] = PushedFind;
+    if pushednum == 0
+        % 对按钮8进行操作后，若一个按钮也没有被按下，则所有按钮均可用
+        set(PlotsValues,'enable','on');
+        if ~strcmp(pt.input.ChordMethod,'CLmax')
+            set(PlotsValues(1),'enable','off');
+            set(PlotsValues(2),'enable','off');
+        end  
+        if pt.input.Analyze_flag == 0
+            set(PlotsValues(10),'enable','off');
+        end 
+        if pt.input.Geometry_flag == 0
+            set(PlotsValues(11),'enable','off');
+            set(PlotsValues(12),'enable','off');
+        end
+    else
+        % 对按钮8进行操作后，若存在被按下的按钮，则除2、8外的所有按钮均不可用
+        set(PlotsValues,'enable','off');
+        set(PlotsValues(2),'enable','on');
+        set(PlotsValues(8),'enable','on');
+    end
+    % 绘制图像
+    if get(hObject,'value')
+        % 避免绘图时弹窗
+        set(0,'CurrentFigure',Fig_Main);
+        RhoRp = pt.input.Dh/pt.input.Dp;
+        rc = pt.design.RC;
+        T0oDp_c = pt.design.t0oDp;
+        % rc_expanded是rc的插值序列，利用正弦函数拓展rx序列
+        rc_expanded = RhoRp+(1-RhoRp)*(sin((0:60)*pi/(2*60)));
+        % T0oDp_c_expanded是T0oDp_c基于pchip的插值序列
+        T0oDp_c_expanded = pchip(rc,T0oDp_c,rc_expanded);
+        % 如果此时被按下的按钮不为1，则说明2也被按下
+        if pushednum == 1
+            cla(coordinate);
+        else
+            hold(coordinate,'on');
+        end
+        
+        grid(coordinate,'on');
+        box(coordinate,'on');
+        % 绘制厚径比曲线
+        T0oDp_Result_line = plot(coordinate,rc_expanded,T0oDp_c_expanded,...
+                                 'linewidth',2,...
+                                 'color',linecolor4_1);
+        hold(coordinate,'on');
+        
+        % 绘制厚径比散点
+        T0oDp_Result_point = scatter(coordinate,rc,T0oDp_c,...
+                                     'marker','o',...
+                                     'markeredgecolor',linecolor4_1,...
+                                     'markerfacecolor',linecolor4_2,...
+                                     'sizedata',25);
+                                 
+        % 设置坐标系自动调整
+        xlim(coordinate,'auto');
+        ylim(coordinate,'auto');
+        
+        if pushednum == 1
+            legend(T0oDp_Result_line,'t0/Dp');
+        else
+            legend([T0oDp_Input_line,T0oDp_Result_line],'Input:T0/Dp','Design:T0/Dp');
+            set(PlotsPanel,'title','厚径比分布曲线(来自输入/来自结果)');
+        end    
+        
+        % 设置坐标轴标签
+        xlabel(coordinate,'rc','fontsize',16,'fontname','Times');
+        ylabel(coordinate,'T0/Dp','fontsize',16,'fontname','Times');
+    elseif pushednum == 0
+        cla(coordinate);
+        xlabel(coordinate,'');
+        ylabel(coordinate,'');     
+        legend(coordinate,'off');
+        set(PlotsPanel,'title','点击左侧按钮显示对应图像');
+    else
+        delete(T0oDp_Result_line);
+        delete(T0oDp_Result_point);
+        legend(T0oDp_Input_line,'Cp/Dp');
+        set(PlotsPanel,'title',PlotsStrings{2});
+    end
+end
+
+% “升力系数分布曲线”的回调函数
+function CLResultfcn(hObject,~,PlotsStrings)
+    global pt;
+    global Fig_Main PlotsValues PlotsPanel coordinate;
+    global CL_Input_line CL_Result_line CL_Result_point;
+    global linecolor1_1 linecolor1_2;
+    
+    % 设置图像面板标题
+    set(PlotsPanel,'title',PlotsStrings{9});
+    
+    % 查找被按下的按钮数量
+    [~,pushednum] = PushedFind;
+    if pushednum == 0
+        % 对按钮9进行操作后，若一个按钮也没有被按下，则所有按钮均可用
+        set(PlotsValues,'enable','on');
+        if ~strcmp(pt.input.ChordMethod,'CLmax')
+            set(PlotsValues(1),'enable','off');
+            set(PlotsValues(2),'enable','off');
+        end  
+        if pt.input.Analyze_flag == 0
+            set(PlotsValues(10),'enable','off');
+        end 
+        if pt.input.Geometry_flag == 0
+            set(PlotsValues(11),'enable','off');
+            set(PlotsValues(12),'enable','off');
+        end
+    else
+        % 对按钮9进行操作后，若存在被按下的按钮，则除1、9外的所有按钮均不可用
+        set(PlotsValues,'enable','off');
+        set(PlotsValues(1),'enable','on');
+        set(PlotsValues(9),'enable','on');
+    end
+    
+    % 绘制图像
+    if get(hObject,'value')
+        % 避免绘图时弹窗
+        set(0,'CurrentFigure',Fig_Main);
+        RhoRp = pt.input.Dh/pt.input.Dp;
+        rc = pt.design.RC;
+        CL_c = pt.design.CL;
+        rc_expanded = [RhoRp,rc,1];
+        CL_c_expanded = spline(rc,CL_c,rc_expanded);
+        
+        % 如果此时被按下的按钮不为一个，则说明1也被按下
+        if pushednum == 1
+            cla(coordinate);
+        else
+            hold(coordinate,'on');
+        end
+        
+        % 绘制升力系数曲线
+        CL_Result_line = plot(coordinate,rc_expanded,CL_c_expanded,...
+                              'linewidth',2,...
+                              'color',linecolor1_1);
+        hold(coordinate,'on');
+        grid(coordinate,'on');
+        box(coordinate,'on');
+        
+        % 绘制升力系数散点
+        CL_Result_point = scatter(coordinate,rc,CL_c,...
+                                  'marker','o',...
+                                  'markeredgecolor',linecolor1_1,...
+                                  'markerfacecolor',linecolor1_2,...
+                                  'sizedata',25);
+                              
+        xlim(coordinate,'auto');
+        ylim(coordinate,'auto');
+        
+        xlabel(coordinate,'rc','fontsize',16,'fontname','Times');
+        ylabel(coordinate,'CL','fontsize',16,'fontname','Times');
+    elseif pushednum == 0
+        cla(coordinate);
+        xlabel(coordinate,'');
+        ylabel(coordinate,'');
+        legend(coordinate,'off');
+        set(PlotsPanel,'title','点击左侧按钮显示对应图像');
+    else
+        delete(CL_Result_line);
+        delete(CL_Result_point);
+        legend(CL_Input_line,'CL');
+        set(PlotsPanel,'title',PlotsStrings{1});
+    end
+end
+
+% “性能曲线”的回调函数
+function Performancefcn(~,~)
+    global pt;
+    
+    if pt.input.Analyze_flag
+        pt.states = AnalyzeAuto(pt);
+        set(0,'CurrentFigure',Plots);
+        h = axes('parent',PlotsPanel(15));
+        axes(h);
+        hold on;
+        if Propeller_flag == 1
+            VMIV = pt.design.VMIV;
+            Js_curve = linspace(min(pt.states.Js),max(pt.states.Js),100);
+            EFFY_curve = (Js_curve/(2*pi)) * VMIV .* pchip(pt.states.Js,pt.states.KT,Js_curve)./pchip(pt.states.Js,pt.states.KQ,Js_curve); 
+            % Efficiency (green squares)
+            plot(Js_curve,EFFY_curve,'-','LineWidth',2,'Color',[0 0.8 0])
+            Heffy = plot(pt.states.Js,pt.states.EFFY,'sk','MarkerSize',5,'LineWidth',1,'MarkerFaceColor',[0 0.8 0]); 
+            % Thrust coefficient (blue diamonds)
+            plot(pt.states.Js,pt.states.KT,'b-','LineWidth',2)
+            Hkt   = plot(pt.states.Js,pt.states.KT,'dk','MarkerSize',5,'LineWidth',1,'MarkerFaceColor','b');
+            % Torque coefficient (red circles)
+            plot(pt.states.Js,10*pt.states.KQ,'r-','LineWidth',2)    
+            Hkq = plot(pt.states.Js,10*pt.states.KQ,'ok','MarkerSize',5,'LineWidth',1,'MarkerFaceColor','r');
+            % Design point
+            plot(pt.design.Js*[1 1],[0 2],'k--','LineWidth',1);
+            xlabel('Js','FontSize',16,'FontName','Times'), 
+            ylabel('KT, 10*KQ, EFFY','FontSize',16,'FontName','Times')
+            axis([min(pt.states.Js) max(pt.states.Js) 0 0.9])
+            set(gca,'FontSize',14,'FontName','Times');
+            box on, grid on,
+            ylimits = get(gca,'Ylim');
+            set(gca,'Ylim', [0  max(1,ylimits(2)) ] );
+        else
+            % Power coefficient (blue dots)
+            plot(pt.states.L,-pt.states.CP,'b.-','LineWidth',2,'MarkerSize',12)
+            % Design point
+            plot(pt.design.L*[1 1],[0 0.6],'k--','LineWidth',1);
+            % % Betz limit
+            % plot([0 ceil(max(pt.states.L))],(16/27)*[1 1],'k--','LineWidth',1);
+            xlabel('L','FontSize',16,'FontName','Times'), 
+            ylabel('CP','FontSize',16,'FontName','Times'),
+            set(gca,'Ytick',[0:0.1:0.6])
+            axis([0 ceil(max(pt.states.L))  0 0.6])
+            set(gca,'FontSize',14,'FontName','Times');
+            box on, grid on,
+        end
+    end
 end
 
 %% 菜单栏的回调函数
