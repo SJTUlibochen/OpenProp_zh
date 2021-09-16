@@ -4,6 +4,7 @@ function MainPage
     %% 前处理
     clear variables;
     clear global;
+    
     global titlefontsize zhfontsize subcolumnfontsize numfontsize OpenPropDirectory;
     global Fig_Main Menu TabPageMenu Tabs SpecificationsValues FlagsValues...
            Property1Values Table1PanelGrid rx_in CDp_x_in Meanline_x_in...
@@ -21,6 +22,7 @@ function MainPage
     Duct_flag_def = 1;
     Dd_def = 0.2;
     Cd_def = 0.2;
+    Ld_def = 0.1;
     % 叶片切面参数
     Nx_def = 10;
     ChordMethod_def = 'CLmax';
@@ -55,7 +57,7 @@ function MainPage
     filename_def = 'DefaultProject';
     %% GUI元素的参数
     % 字体大小
-    titlefontsize = 60;
+    titlefontsize = 42;
     zhfontsize = 15;
     subcolumnfontsize = 17;
     numfontsize = 13;
@@ -110,9 +112,18 @@ function MainPage
     % 生成SingleDesign中的网格空间
     SingleDesignGrid = uigridlayout(SingleDesign,[3 3],...
                                     'columnwidth',{'1x','3x','1.5x'},...
-                                    'rowheight',{'4x','1x','1.1x'},...
+                                    'rowheight',{'0.5x','4.5x','1.1x'},...
                                     'padding',[10 10 10 10]);
                                 
+    % 标题 Title
+    Title = uilabel(SingleDesignGrid,...
+                    'text','OpenProp',...
+                    'horizontalalignment','center',...
+                    'fontname','Bauhaus 93',...
+                    'fontsize',titlefontsize,...
+                    'fontweight','normal',...
+                    'verticalalignment','top');
+                
     % 螺旋桨规格 Propeller Specification
     Specifications = uipanel('parent',SingleDesignGrid,...
                              'title','螺旋桨规格',...
@@ -120,7 +131,9 @@ function MainPage
                              'fontsize',subcolumnfontsize,...
                              'fontweight','bold',...
                              'scrollable','off');
-                         
+    Specifications.Layout.Row = 2;
+    Specifications.Layout.Column = 1;
+                
     % 叶片切面参数 Blade Design Values
     BladeDesign = uipanel('parent',SingleDesignGrid,...
                           'title','叶片切面参数',...
@@ -129,6 +142,7 @@ function MainPage
                           'fontweight','bold',...
                           'scrollable','on');
     BladeDesign.Layout.Row = [1 2];
+    BladeDesign.Layout.Column = 2;
     
     % 外部环境参数 Inflow Profile Values
     Inflow = uipanel('parent',SingleDesignGrid,...
@@ -138,7 +152,8 @@ function MainPage
                      'fontweight','bold',...
                      'scrollable','on');
     Inflow.Layout.Row = [1 2];
-    
+    Inflow.Layout.Column = 3;
+                         
     % 涵道相关参数 Duct Design Values
     Duct = uipanel('parent',SingleDesignGrid,...
                    'title','涵道相关参数',...
@@ -146,17 +161,9 @@ function MainPage
                    'fontsize',subcolumnfontsize,...
                    'fontweight','bold',...
                    'scrollable','off');
-    Duct.Layout.Row = 2;
+    Duct.Layout.Row = 3;
     Duct.Layout.Column = 1;
     
-    % 标题 Title
-    Title = uilabel(SingleDesignGrid,...
-                    'text','OpenProp',...
-                    'horizontalalignment','center',...
-                    'fontname','Bauhaus 93',...
-                    'fontsize',titlefontsize,...
-                    'fontweight','normal');
-     
     % 其他参数与工具 Other Desgin Values & Tools
     Tools = uipanel('parent',SingleDesignGrid,...
                     'title','其他参数与工具',...
@@ -164,6 +171,7 @@ function MainPage
                     'fontsize',subcolumnfontsize,...
                     'fontweight','bold',...
                     'scrollable','off');
+    Tools.Layout.Row = 3;
     Tools.Layout.Column = [2 3];
     
     %% 标签页“研究参数的影响”中的GUI元素
@@ -178,7 +186,7 @@ function MainPage
     %% 子栏“螺旋桨规格”中的GUI元素
     % 生成Specifications中的网格
     SpecificationsGrid = uigridlayout(Specifications,[4 1],...
-                                      'rowheight',{'3x','2x','2x','3x'},...
+                                      'rowheight',{'3.05x','2.15x','2.15x','4x'},...
                                       'columnspacing',5,...
                                       'rowspacing',5,...
                                       'padding',[5 5 5 5],...
@@ -186,9 +194,14 @@ function MainPage
                                   
     % GUI元素
     SpecificationsStrings = {'电机转速：','行进速度：','总升力：','叶片数量：',...
-                             '叶片直径：','桨毂直径：','涵道直径：','涵道弦长：'};
-    SpecificationsTips = {'N','VS','T','Z','Dp','Dh','Dd','Cd'};
-    SpecificationsValues_def = {N_def,VS_def,T_def,Z_def,Dp_def,Dh_def,Dd_def,Cd_def};
+                             '叶片直径：','桨毂直径：','涵道直径：','涵道弦长：',...
+                             '涵道位置：'};
+    SpecificationsTips = {'N','VS','T','Z','Dp','Dh',...
+                          'Dd，涵道切面叶型的中线绕涵道中轴线旋转所形成圆柱的直径',...
+                          'Cd，涵道切面叶型的弦长',...
+                          'Ld，涵道前缘线距离叶片所在平面的距离，在上游为正'};
+    SpecificationsValues_def = {N_def,VS_def,T_def,Z_def,Dp_def,Dh_def,...
+                                Dd_def,Cd_def,Ld_def};
     
     % 装置面板
     DevicePanel = uipanel(SpecificationsGrid);
@@ -263,12 +276,11 @@ function MainPage
                                           'fontsize',numfontsize,...
                                           'horizontalalignment','center',...
                                           'value',SpecificationsValues_def{6},...
-                                          'limit',[0 Inf],...
-                                          'lowerlimitinclusive','on');
+                                          'limit',[0 Inf]);
                                       
     % 涵道面板
     DuctPanel = uipanel(SpecificationsGrid);
-    DuctPanelGrid = uigridlayout(DuctPanel,[3 2],...
+    DuctPanelGrid = uigridlayout(DuctPanel,[4 2],...
                                  'columnwidth',{'2x','3.5x'},...
                                  'columnspacing',0,...
                                  'rowspacing',10,...
@@ -283,7 +295,7 @@ function MainPage
                                 'tooltip','Duct_flag',...
                                 'fontsize',zhfontsize);
     
-    for index = 7 : 8
+    for index = 7 : 9
         SpecificationsTexts(index) = uilabel('parent',DuctPanelGrid,...
                                              'text',SpecificationsStrings{index},...
                                              'horizontalalignment','left',...
@@ -294,10 +306,9 @@ function MainPage
         SpecificationsValues(index) = uieditfield(DuctPanelGrid,'numeric',...
                                                   'fontsize',numfontsize,...
                                                   'horizontalalignment','center',...
-                                                  'value',SpecificationsValues_def{index},...
                                                   'limit',[0 Inf],...
-                                                  'lowerlimitinclusive','on');
-    end    
+                                                  'value',SpecificationsValues_def{index});
+    end   
     
     % 设置Specifications编辑框中的显示形式和单位
     set(SpecificationsValues(1),'valuedisplayformat','%.0f RPM');
@@ -308,6 +319,7 @@ function MainPage
     set(SpecificationsValues(6),'valuedisplayformat','%.3f m');
     set(SpecificationsValues(7),'valuedisplayformat','%.3f m');
     set(SpecificationsValues(8),'valuedisplayformat','%.3f m');
+    set(SpecificationsValues(9),'valuedisplayformat','%.3f m');
     
     %% 子栏“叶片切面参数”中的GUI元素
     % 生成BladeDesign中的网格
@@ -355,9 +367,7 @@ function MainPage
                                 'fontsize',zhfontsize);
     Property1Values(2) = uidropdown('parent',Property1PanelSubGrid(2),...
                                     'value',ChordMethod_def,...
-                                    'items',{'CLmax','ConeyPLL',...
-                                             'FAST2011dCTP','FAST2011dVAC',...
-                                             'Brizzolara2007'},...
+                                    'items',{'CLmax','ConeyPLL'},...
                                     'fontsize',numfontsize);
     FlagsValues(3) = uicheckbox('parent',Property1PanelGrid,...
                                 'text','凸缘线类型保持同一',...
@@ -519,25 +529,32 @@ function MainPage
     end    
     %% 子栏“涵道相关参数”中的GUI元素
     % 生成Duct中的网格
-    DuctGrid = uigridlayout(Duct,[2 2],...
-                            'columnwidth',{'2x','3.5x'},...
-                            'rowheight',{'1x','1x'},...
-                            'columnspacing',10,...
-                            'rowspacing',10,...
-                            'padding',[15 10 15 10],...
-                            'scrollable','off');
+    DuctGrid = uigridlayout(Duct,[1 1],...
+                            'columnspacing',5,...
+                            'rowspacing',5,...
+                            'padding',[5 5 5 5]);
+    
+    % 编辑框面板
+    DuctPanel = uipanel(DuctGrid);
+    DuctPanelGrid = uigridlayout(DuctPanel,[2 2],...
+                                 'columnwidth',{'2x','3.5x'},...
+                                 'rowheight',{'1x','1x'},...
+                                 'columnspacing',10,...
+                                 'rowspacing',10,...
+                                 'padding',[10 10 10 10],...
+                                 'scrollable','off');
     DuctStrings = {'升力比重：','阻力系数：'};
     DuctTips = {'TdoT，涵道所提供升力占总升力的比值','CDd'};
     DuctValues_def = {TdoT_def,CDd_def};
     for index = 1 : 2
-        DuctTexts(index) = uilabel('parent',DuctGrid,...
+        DuctTexts(index) = uilabel('parent',DuctPanelGrid,...
                                    'text',DuctStrings{index},...
                                    'horizontalalignment','left',...
                                    'verticalalignment','center',...
                                    'tooltip',DuctTips{index},...
                                    'fontsize',zhfontsize);
         
-        DuctValues(index) = uieditfield(DuctGrid,'numeric',...
+        DuctValues(index) = uieditfield(DuctPanelGrid,'numeric',...
                                         'fontsize',numfontsize,...
                                         'horizontalalignment','center',...
                                         'value',DuctValues_def{index});                       
@@ -555,7 +572,7 @@ function MainPage
     % 复选框面板
     FlagsPanel = uipanel(ToolsGrid);
     FlagsPanelGrid = uigridlayout(FlagsPanel,[2,2]);
-    FlagsStrings = {'绘制性能曲线','渲染演示模型',...
+    FlagsStrings = {'绘制性能曲线','生成2/3D演示模型',...
                     '输出点坐标文档','输出快速成型文件'};
     FlagsTips = {'Analyze_flag','Geometry_flag',...
                  'Coordinate_flag','Printing_flag'};
@@ -672,12 +689,13 @@ function MainPage
     
     % 设置Specifications编辑框的回调函数
     set(SpecificationsValues,'valuechangedfcn',{@ChangeSpecifications,...
-                                                Dp_def,Dh_def,Dd_def});
+                                                Dp_def,Dh_def,Dd_def,...
+                                                Cd_def,Ld_def});
     
     % 设置Specifications复选框的回调函数
     set(FlagsValues(1),'valuechangedfcn',{@ChangeHub,Dh_def});
     set(FlagsValues(2),'valuechangedfcn',{@ChangeDuct,Dd_def,Cd_def,...
-                                          TdoT_def,CDd_def});
+                                          Ld_def,TdoT_def,CDd_def});
     
     % 设置BladeDesign表格数控制的回调函数
     set(Property1Values(1),'valuechangedfcn',{@ChangeNx,Meanline_x_items,...
@@ -706,7 +724,7 @@ end
 
 %% 子栏“螺旋桨规格”中涉及到的回调函数
 % 编辑框的回调函数
-function ChangeSpecifications(~,~,Dp_def,Dh_def,Dd_def)
+function ChangeSpecifications(~,~,Dp_def,Dh_def,Dd_def,Cd_def,Ld_def)
     global Fig_Main SpecificationsValues;
     % 调整输入值，避免出现无意义的情况
     Z = round(get(SpecificationsValues(4),'value'));
@@ -714,19 +732,28 @@ function ChangeSpecifications(~,~,Dp_def,Dh_def,Dd_def)
     Dp = get(SpecificationsValues(5),'value');
     Dh = get(SpecificationsValues(6),'value');
     Dd = get(SpecificationsValues(7),'value');
+    Cd = get(SpecificationsValues(8),'value');
+    Ld = get(SpecificationsValues(9),'value');
+    
     % 检查桨毂直径与螺旋桨直径的输入值，若前者大于后者，则弹出提醒框
     if Dh >= Dp
-        message1 = sprintf('当前设置的桨毂直径大于螺旋桨直径 \n 请重新设置！');
-        uialert(Fig_Main,message1,'参数设置错误',...
-                'closefcn',{@ResetDiameters1,SpecificationsValues,...
-                            Dp_def,Dh_def});
+        error1 = sprintf('当前设置的桨毂直径大于螺旋桨直径 \n 请重新设置！');
+        uialert(Fig_Main,error1,'参数设置错误',...
+                'closefcn',{@ResetDiameters1,Dp_def,Dh_def});
     end
+    
     % 检查涵道直径与螺旋桨直径的输入值，若前者小于后者，则弹出提醒框
     if Dd < Dp
-        message2 = sprintf('当前设置的涵道直径小于螺旋桨直径 \n 请重新设置！');
-        uialert(Fig_Main,message2,'参数设置错误',...
-                'closefcn',{@ResetDiameters2,SpecificationsValues,...
-                            Dp_def,Dd_def});
+        error2 = sprintf('当前设置的涵道直径小于螺旋桨直径 \n 请重新设置！');
+        uialert(Fig_Main,error2,'参数设置错误',...
+                'closefcn',{@ResetDiameters2,Dp_def,Dd_def});
+    end
+    
+    % 检查涵道弦长和涵道位置的输入值，若前者小于后者，则弹出提醒框
+    if Cd < Ld
+        error3 = sprintf('当前设置的螺旋桨在涵道外 \n 请重新设置！');
+        uialert(Fig_Main,error3,'参数设置错误',...
+                'closefcn',{@ResetDiameters3,Cd_def,Ld_def});
     end
 end
 % 发生直径设置错误后调用的函数
@@ -740,12 +767,17 @@ function ResetDiameters2(~,~,Dp_def,Dd_def)
     set(SpecificationsValues(5),'value',Dp_def);
     set(SpecificationsValues(7),'value',Dd_def);
 end
+function ResetDiameters3(~,~,Cd_def,Ld_def)
+    global SpecificationsValues;
+    set(SpecificationsValues(8),'value',Cd_def);
+    set(SpecificationsValues(9),'value',Ld_def);
+end
 
 % 复选框的回调函数
 function ChangeHub(hObject,~,Dh_def)
     global SpecificationsValues;
     if get(hObject,'value')
-        % 勾选“加入桨毂”，允许编辑桨毂直径
+        % 允许编辑桨毂直径
         set(SpecificationsValues(6),'enable','on');
         set(SpecificationsValues(6),'editable','on');
         set(SpecificationsValues(6),'value',Dh_def);
@@ -756,16 +788,19 @@ function ChangeHub(hObject,~,Dh_def)
     end
 end
 
-function ChangeDuct(hObject,~,Dd_def,Cd_def,TdoT_def,CDd_def)
+function ChangeDuct(hObject,~,Dd_def,Cd_def,Ld_def,TdoT_def,CDd_def)
     global SpecificationsValues DuctValues;
     if get(hObject,'value')
-        % 勾选“加入涵道”，允许编辑涵道相关控件
+        % 允许编辑涵道相关控件，不允许使用设计方法FAST2011dCTP
         set(SpecificationsValues(7),'enable','on');
         set(SpecificationsValues(7),'editable','on');
         set(SpecificationsValues(7),'value',Dd_def);
         set(SpecificationsValues(8),'enable','on');
         set(SpecificationsValues(8),'editable','on');
         set(SpecificationsValues(8),'value',Cd_def);
+        set(SpecificationsValues(9),'enable','on');
+        set(SpecificationsValues(9),'editable','on');
+        set(SpecificationsValues(9),'value',Ld_def);
         set(DuctValues(1),'enable','on');
         set(DuctValues(1),'editable','on');
         set(DuctValues(1),'value',TdoT_def);
@@ -779,6 +814,9 @@ function ChangeDuct(hObject,~,Dd_def,Cd_def,TdoT_def,CDd_def)
         set(SpecificationsValues(8),'enable','off');
         set(SpecificationsValues(8),'editable','off');
         set(SpecificationsValues(8),'value',0);
+        set(SpecificationsValues(9),'enable','off');
+        set(SpecificationsValues(9),'editable','off');
+        set(SpecificationsValues(9),'value',0);
         set(DuctValues(1),'enable','off');
         set(DuctValues(1),'editable','off');
         set(DuctValues(1),'value',0);
@@ -1144,6 +1182,7 @@ function Load(~,~,Meanline_x_items,Thickness_x_items)
     set(FlagsValues(2),'value',pt.input.Duct_flag);
     set(SpecificationsValues(7),'value',pt.input.Dd);
     set(SpecificationsValues(8),'value',pt.input.Cd);
+    set(SpecificationsValues(9),'value',pt.input.Ld);
     
     % 将数据导入“叶片切面参数”
     set(Property1Values(1),'value',pt.input.Nx);
@@ -1168,7 +1207,14 @@ function Load(~,~,Meanline_x_items,Thickness_x_items)
                 set(CL_x_in(index),'editable','on');
                 set(T0oDp_x_in(index),'enable','on');
                 set(T0oDp_x_in(index),'editable','on');
+            elseif strcmp(pt.input.ChordMethod,'ConeyPLL')
+                % 设计方法为'ConeyPLL'，允许编辑厚径比
+                set(CL_x_in(index),'enable','off');
+                set(CL_x_in(index),'editable','off');
+                set(T0oDp_x_in(index),'enable','on');
+                set(T0oDp_x_in(index),'editable','on');
             else
+                % 其余设计方法不允许编辑升力系数和厚径比
                 set(CL_x_in(index),'enable','off');
                 set(CL_x_in(index),'editable','off');
                 set(T0oDp_x_in(index),'enable','off');
@@ -1236,7 +1282,14 @@ function Load(~,~,Meanline_x_items,Thickness_x_items)
                 set(CL_x_in(index),'editable','on');
                 set(T0oDp_x_in(index),'enable','on');
                 set(T0oDp_x_in(index),'editable','on');
+            elseif strcmp(pt.input.ChordMethod,'ConeyPLL')
+                % 设计方法为'ConeyPLL'，允许编辑厚径比
+                set(CL_x_in(index),'enable','off');
+                set(CL_x_in(index),'editable','off');
+                set(T0oDp_x_in(index),'enable','on');
+                set(T0oDp_x_in(index),'editable','on');
             else
+                % 其余设计方法不允许编辑升力系数和厚径比
                 set(CL_x_in(index),'enable','off');
                 set(CL_x_in(index),'editable','off');
                 set(T0oDp_x_in(index),'enable','off');
@@ -1285,7 +1338,14 @@ function Load(~,~,Meanline_x_items,Thickness_x_items)
                 set(CL_x_in(index),'editable','on');
                 set(T0oDp_x_in(index),'enable','on');
                 set(T0oDp_x_in(index),'editable','on');
+            elseif strcmp(pt.input.ChordMethod,'ConeyPLL')
+                % 设计方法为'ConeyPLL'，允许编辑厚径比
+                set(CL_x_in(index),'enable','off');
+                set(CL_x_in(index),'editable','off');
+                set(T0oDp_x_in(index),'enable','on');
+                set(T0oDp_x_in(index),'editable','on');
             else
+                % 其余设计方法不允许编辑升力系数和厚径比
                 set(CL_x_in(index),'enable','off');
                 set(CL_x_in(index),'editable','off');
                 set(T0oDp_x_in(index),'enable','off');
@@ -1420,6 +1480,7 @@ function Save(~,~)
     Duct_flag = get(FlagsValues(2),'value');        % 设计中加入涵道
     Dd = get(SpecificationsValues(7),'value');      % 涵道直径(m)
     Cd = get(SpecificationsValues(8),'value');      % 涵道弦长(m)
+    Ld = get(SpecificationsValues(9),'value');      % 涵道位置(m)
     
     % 子栏“叶片切面参数”中的输入值
     Nx = get(Property1Values(1),'value');           % 切面数量
@@ -1459,7 +1520,7 @@ function Save(~,~)
     
     % 子栏“其他参数与工具”中的输入量
     Analyze_flag = get(FlagsValues(5),'value');     % 绘制性能曲线
-    Geometry_flag = get(FlagsValues(6),'value');    % 渲染演示模型
+    Geometry_flag = get(FlagsValues(6),'value');    % 生成2/3D演示模型
     Coordinate_flag = get(FlagsValues(7),'value');  % 输出点坐标文档
     Printing_flag = get(FlagsValues(8),'value');    % 输出快速成型文件
     Mp = get(ToolsValues(1),'value');               % 叶片控制点数量
@@ -1479,6 +1540,7 @@ function Save(~,~)
     input.Duct_flag = Duct_flag;
     input.Dd = Dd;
     input.Cd = Cd;
+    input.Ld = Ld;
     
     input.part2 = '叶片切面参数';
     input.Nx = Nx;
@@ -1517,9 +1579,9 @@ function Save(~,~)
     pt.filename = filename;
     pt.date = date;
     pt.input = input;
-    pt.design = [];
-    pt.geometry = [];
-    pt.states = [];
+%     pt.design = [];
+%     pt.geometry = [];
+%     pt.states = [];
     
     % 保存
     save(filename,'pt');
@@ -1544,6 +1606,7 @@ function SaveCopyAs(~,~)
     Duct_flag = get(FlagsValues(2),'value');        % 设计中加入涵道
     Dd = get(SpecificationsValues(7),'value');      % 涵道直径(m)
     Cd = get(SpecificationsValues(8),'value');      % 涵道弦长(m)
+    Ld = get(SpecificationsValues(9),'value');      % 涵道位置(m)
     
     % 子栏“叶片切面参数”中的输入值
     Nx = get(Property1Values(1),'value');           % 切面数量
@@ -1583,7 +1646,7 @@ function SaveCopyAs(~,~)
     
     % 子栏“其他参数与工具”中的输入量
     Analyze_flag = get(FlagsValues(5),'value');     % 绘制性能曲线
-    Geometry_flag = get(FlagsValues(6),'value');    % 渲染演示模型
+    Geometry_flag = get(FlagsValues(6),'value');    % 生成2/3D演示模型
     Coordinate_flag = get(FlagsValues(7),'value');  % 输出点坐标文档
     Printing_flag = get(FlagsValues(8),'value');    % 输出快速成型文件
     Mp = get(ToolsValues(1),'value');               % 叶片控制点数量
@@ -1603,6 +1666,7 @@ function SaveCopyAs(~,~)
     input.Duct_flag = Duct_flag;
     input.Dd = Dd;
     input.Cd = Cd;
+    input.Ld = Ld;
     
     input.part2 = '叶片切面参数';
     input.Nx = Nx;
@@ -1654,17 +1718,13 @@ function Execute(~,~)
     global NumbersValues;
     % 保存当前界面输入值
     Save;
+    
     % 生成结果标签页
     ResultPage;
     
-    % 进行计算
+    % Save函数运行完成后，文件路径位于OpenProp_results文件夹下
+    % 需要调整路径或添加路径至Matlab搜索范围(addpath)
     pt.design = EppsOptimizer(pt.input);
-    % 计算螺旋桨的扭矩，其中CQ为扭矩系数
-    pt.design.Q = pt.design.CQ * 0.5 * pt.input.rho * pt.input.Vs^2 * pi*pt.input.Dp^2/4 * pt.input.Dp/2; % [Nm]  torque
-    % 计算螺旋桨的转速
-    omega = 2*pi*pt.input.N/60; % [rad/s]
-    % 计算螺旋桨消耗的功率
-    pt.design.P = pt.design.Q * omega;
     
     % 将计算结果导入数值结果的编辑框中
     NumbersValues_def = {pt.input.N,pt.input.VS,pt.input.Dp,pt.input.T,...
@@ -1675,8 +1735,14 @@ function Execute(~,~)
         set(NumbersValues(index),'value',NumbersValues_def{index});
     end                 
     
-    pt.geometry = Geometry(pt);
+    % 将优化结果保存至pt中
+    save(pt.filename,'pt');
     
+%     % 生成几何结构
+%     pt.geometry = Geometry(pt);
+%     
+%     % 将几何结构保存至pt中
+%     save(pt.filename,'pt');
 end
 
 %% 生成结果界面
@@ -1906,7 +1972,7 @@ function CLInputfcn(hObject,~,PlotsStrings)
                                  'markerfacecolor',linecolor1_2,...
                                  'sizedata',25);
                              
-        % 设置坐标系自动调整                         
+        % 设置坐标轴自动调整                         
         xlim(coordinate,'auto');
         ylim(coordinate,'auto');
         
@@ -1950,6 +2016,9 @@ function ThicknessInputfcn(hObject,~,PlotsStrings)
     if pushednum == 0
         % 对按钮2进行操作后，若一个按钮也没有被按下，则所有按钮均可用
         set(PlotsValues,'enable','on');
+        if ~strcmp(pt.input.ChordMethod,'CLmax')
+            set(PlotsValues(1),'enable','off');
+        end    
         if pt.input.Analyze_flag == 0
             set(PlotsValues(10),'enable','off');
         end 
@@ -1998,7 +2067,7 @@ function ThicknessInputfcn(hObject,~,PlotsStrings)
                                      'markerfacecolor',linecolor2_2,...
                                      'sizedata',25);
                                  
-        % 设置坐标系自动调整
+        % 设置坐标轴自动调整
         xlim(coordinate,'auto');
         ylim(coordinate,'auto');
         
@@ -2043,7 +2112,9 @@ function InflowProfilefcn(hObject,~,PlotsStrings)
         set(PlotsValues,'enable','on');
         if ~strcmp(pt.input.ChordMethod,'CLmax')
             set(PlotsValues(1),'enable','off');
-            set(PlotsValues(2),'enable','off');
+            if ~strcmp(pt.input.ChordMethod,'ConeyPLL')
+                set(PlotsValues(2),'enable','off');
+            end    
         end    
         if pt.input.Analyze_flag == 0
             set(PlotsValues(10),'enable','off');
@@ -2087,7 +2158,7 @@ function InflowProfilefcn(hObject,~,PlotsStrings)
                            'linewidth',2,...
                            'color',linecolor2_1);
                        
-        % 设置坐标系自动调整
+        % 设置坐标轴自动调整
         xlim(coordinate,'auto');
         ylim(coordinate,'auto');
         
@@ -2134,7 +2205,9 @@ function Circulationfcn(hObject,~,PlotsStrings)
         set(PlotsValues,'enable','on');
         if ~strcmp(pt.input.ChordMethod,'CLmax')
             set(PlotsValues(1),'enable','off');
-            set(PlotsValues(2),'enable','off');
+            if ~strcmp(pt.input.ChordMethod,'ConeyPLL')
+                set(PlotsValues(2),'enable','off');
+            end    
         end    
         if pt.input.Analyze_flag == 0
             set(PlotsValues(10),'enable','off');
@@ -2154,17 +2227,17 @@ function Circulationfcn(hObject,~,PlotsStrings)
         % 避免绘图时弹窗
         set(0,'CurrentFigure',Fig_Main);
         RhoRp = pt.input.Dh/pt.input.Dp;
-        rc = pt.design.RC;
-        Gamma_c = pt.design.G';
+        rc = pt.design.rc;
+        Gp_c = pt.design.Gp;
         % rc_expanded是rc的插值序列，外拓了RhoRp和1两个边界值
-        rc_expanded = [RhoRp,rc,1];
-        % Gamma_c_expanded是Gamma_c基于pchip的插值序列
-        Gamma_c_expanded = pchip(rc,Gamma_c,rc_expanded);
+        rc_expanded = [RhoRp;rc;1];
+        % Gp_c_expanded是Gp_c基于pchip的插值序列
+        Gp_c_expanded = pchip(rc,Gp_c,rc_expanded);
         % 清空图像
         cla(coordinate);
         
         % 绘制环量曲线
-        Gamma_line = plot(coordinate,rc_expanded,Gamma_c_expanded,...
+        Gamma_line = plot(coordinate,rc_expanded,Gp_c_expanded,...
                           'linewidth',2,...
                           'color',linecolor3_1);
                       
@@ -2173,20 +2246,20 @@ function Circulationfcn(hObject,~,PlotsStrings)
         box(coordinate,'on');
         
         % 绘制环量散点
-        Gamma_point = scatter(coordinate,rc,Gamma_c,...
+        Gamma_point = scatter(coordinate,rc,Gp_c,...
                               'marker','o',...
                               'markeredgecolor',linecolor3_2,...
                               'markerfacecolor',linecolor3_1,...
                               'sizedata',25);
                           
-        % 设置坐标系自动调整
+        % 设置坐标轴自动调整
         xlim(coordinate,'auto');
         ylim(coordinate,'auto');
         
         % 设置坐标轴标签
-        legend(Gamma_line,'τ/2π·Rp·VS');
+        legend(Gamma_line,'Γ/(2π*Rp*VS)');
         xlabel(coordinate,'rc','fontsize',16,'fontname','Times');
-        ylabel(coordinate,'τ/2π·Rp·Vs','fontsize',16,'fontname','Times');
+        ylabel(coordinate,'Γ/(2π*Rp*Vs)','fontsize',16,'fontname','Times');
     else
         cla(coordinate);
         xlabel(coordinate,'');
@@ -2213,7 +2286,9 @@ function InducedVelocityfcn(hObject,~,PlotsStrings)
         set(PlotsValues,'enable','on');
         if ~strcmp(pt.input.ChordMethod,'CLmax')
             set(PlotsValues(1),'enable','off');
-            set(PlotsValues(2),'enable','off');
+            if ~strcmp(pt.input.ChordMethod,'ConeyPLL')
+                set(PlotsValues(2),'enable','off');
+            end    
         end    
         if pt.input.Analyze_flag == 0
             set(PlotsValues(10),'enable','off');
@@ -2233,7 +2308,7 @@ function InducedVelocityfcn(hObject,~,PlotsStrings)
     if get(hObject,'value')
         % 避免绘图时弹窗
         set(0,'CurrentFigure',Fig_Main);
-        rc = pt.design.RC;
+        rc = pt.design.rc;
         UASTAR = pt.design.UASTAR;
         UTSTAR = pt.design.UTSTAR;
         % 如果此时被按下的按钮不为一个，则说明3也被按下
@@ -2272,7 +2347,7 @@ function InducedVelocityfcn(hObject,~,PlotsStrings)
                                'markerfacecolor',linecolor4_1,...
                                'sizedata',25);
                            
-        % 设置坐标系自动调整
+        % 设置坐标轴自动调整
         xlim(coordinate,'auto');
         ylim(coordinate,'auto');
         
@@ -2285,7 +2360,7 @@ function InducedVelocityfcn(hObject,~,PlotsStrings)
         end    
         
         % 设置坐标轴标签
-        xlabel(coordinate,'r/Rp','fontsize',16,'fontname','Times');
+        xlabel(coordinate,'rc','fontsize',16,'fontname','Times');
         ylabel(coordinate,'Velocity','fontsize',16,'fontname','Times');
     elseif pushednum == 0
         cla(coordinate);
@@ -2320,7 +2395,9 @@ function InflowAnglefcn(hObject,~,PlotsStrings)
         set(PlotsValues,'enable','on');
         if ~strcmp(pt.input.ChordMethod,'CLmax')
             set(PlotsValues(1),'enable','off');
-            set(PlotsValues(2),'enable','off');
+            if ~strcmp(pt.input.ChordMethod,'ConeyPLL')
+                set(PlotsValues(2),'enable','off');
+            end    
         end    
         if pt.input.Analyze_flag == 0
             set(PlotsValues(10),'enable','off');
@@ -2340,11 +2417,11 @@ function InflowAnglefcn(hObject,~,PlotsStrings)
         % 避免绘图时弹窗
         set(0,'CurrentFigure',Fig_Main);
         RhoRp = pt.input.Dh/pt.input.Dp;
-        rc = pt.design.RC;
-        Beta_c = atand(pt.design.TANBC);
-        BetaI_c = atand(pt.design.TANBIC);
+        rc = pt.design.rc;
+        Beta_c = atand(pt.design.tanBeta_c);
+        BetaI_c = atand(pt.design.tanBetaI_c);
         % rc_expanded是rc的插值序列，外拓了RhoRp和1两个边界值
-        rc_expanded = [RhoRp,rc,1];
+        rc_expanded = [RhoRp;rc;1];
         % Beta_c_expanded和BetaI_c_expanded是Beta_c和BetaI_c基于spline的插值序列
         Beta_c_expanded = spline(rc,Beta_c,rc_expanded);
         BetaI_c_expanded = spline(rc,BetaI_c,rc_expanded);
@@ -2380,13 +2457,13 @@ function InflowAnglefcn(hObject,~,PlotsStrings)
                               'markerfacecolor',linecolor4_2,...
                               'sizedata',25);
                           
-        % 设置坐标系自动调整
+        % 设置坐标轴自动调整
         xlim(coordinate,'auto');
         ylim(coordinate,'auto');
         
         % 设置坐标轴标签
         legend([Beta_line,BetaI_line],'β','βi');
-        xlabel(coordinate,'r/Rp','fontsize',16,'fontname','Times');
+        xlabel(coordinate,'rc','fontsize',16,'fontname','Times');
         ylabel(coordinate,'Angle','fontsize',16,'fontname','Times');
     else
         cla(coordinate);
@@ -2414,7 +2491,9 @@ function ExpandedBladefcn(hObject,~,PlotsStrings)
         set(PlotsValues,'enable','on');
         if ~strcmp(pt.input.ChordMethod,'CLmax')
             set(PlotsValues(1),'enable','off');
-            set(PlotsValues(2),'enable','off');
+            if ~strcmp(pt.input.ChordMethod,'ConeyPLL')
+                set(PlotsValues(2),'enable','off');
+            end    
         end    
         if pt.input.Analyze_flag == 0
             set(PlotsValues(10),'enable','off');
@@ -2434,8 +2513,8 @@ function ExpandedBladefcn(hObject,~,PlotsStrings)
         % 避免绘图时弹窗
         set(0,'CurrentFigure',Fig_Main);
         RhoRp = pt.input.Dh/pt.input.Dp;
-        rc = pt.design.RC;
-        CpoDp_c = pt.design.CpoDp;
+        rc = pt.design.rc;
+        CpoDp_c = pt.design.CpoDp_c;
         rc_expanded = RhoRp+(1-RhoRp)*(sin((0:60)*pi/(2*60)));
         CpoDp_c_expanded = InterpolateChord(rc,CpoDp_c,rc_expanded);
         % 清楚图像
@@ -2456,7 +2535,7 @@ function ExpandedBladefcn(hObject,~,PlotsStrings)
                               'markerfacecolor',linecolor3_2,...
                               'sizedata',25);
                           
-        % 设置坐标系自动调整
+        % 设置坐标轴自动调整
         xlim(coordinate,'auto');
         ylim(coordinate,'auto');
         
@@ -2490,8 +2569,10 @@ function ThicknessResultfcn(hObject,~,PlotsStrings)
         set(PlotsValues,'enable','on');
         if ~strcmp(pt.input.ChordMethod,'CLmax')
             set(PlotsValues(1),'enable','off');
-            set(PlotsValues(2),'enable','off');
-        end  
+            if ~strcmp(pt.input.ChordMethod,'ConeyPLL')
+                set(PlotsValues(2),'enable','off');
+            end    
+        end    
         if pt.input.Analyze_flag == 0
             set(PlotsValues(10),'enable','off');
         end 
@@ -2510,8 +2591,8 @@ function ThicknessResultfcn(hObject,~,PlotsStrings)
         % 避免绘图时弹窗
         set(0,'CurrentFigure',Fig_Main);
         RhoRp = pt.input.Dh/pt.input.Dp;
-        rc = pt.design.RC;
-        T0oDp_c = pt.design.t0oDp;
+        rc = pt.design.rc;
+        T0oDp_c = pt.design.T0oDp_c;
         % rc_expanded是rc的插值序列，利用正弦函数拓展rx序列
         rc_expanded = RhoRp+(1-RhoRp)*(sin((0:60)*pi/(2*60)));
         % T0oDp_c_expanded是T0oDp_c基于pchip的插值序列
@@ -2538,14 +2619,14 @@ function ThicknessResultfcn(hObject,~,PlotsStrings)
                                      'markerfacecolor',linecolor4_2,...
                                      'sizedata',25);
                                  
-        % 设置坐标系自动调整
+        % 设置坐标轴自动调整
         xlim(coordinate,'auto');
         ylim(coordinate,'auto');
         
         if pushednum == 1
-            legend(T0oDp_Result_line,'t0/Dp');
+            legend(T0oDp_Result_line,'T0/Dp');
         else
-            legend([T0oDp_Input_line,T0oDp_Result_line],'Input:T0/Dp','Design:T0/Dp');
+            legend([T0oDp_Input_line,T0oDp_Result_line],'Input:T0/Dp','Result:T0/Dp');
             set(PlotsPanel,'title','厚径比分布曲线(来自输入/来自结果)');
         end    
         
@@ -2571,7 +2652,7 @@ function CLResultfcn(hObject,~,PlotsStrings)
     global pt;
     global Fig_Main PlotsValues PlotsPanel coordinate;
     global CL_Input_line CL_Result_line CL_Result_point;
-    global linecolor1_1 linecolor1_2;
+    global linecolor3_1 linecolor3_2;
     
     % 设置图像面板标题
     set(PlotsPanel,'title',PlotsStrings{9});
@@ -2583,8 +2664,10 @@ function CLResultfcn(hObject,~,PlotsStrings)
         set(PlotsValues,'enable','on');
         if ~strcmp(pt.input.ChordMethod,'CLmax')
             set(PlotsValues(1),'enable','off');
-            set(PlotsValues(2),'enable','off');
-        end  
+            if ~strcmp(pt.input.ChordMethod,'ConeyPLL')
+                set(PlotsValues(2),'enable','off');
+            end    
+        end    
         if pt.input.Analyze_flag == 0
             set(PlotsValues(10),'enable','off');
         end 
@@ -2604,9 +2687,9 @@ function CLResultfcn(hObject,~,PlotsStrings)
         % 避免绘图时弹窗
         set(0,'CurrentFigure',Fig_Main);
         RhoRp = pt.input.Dh/pt.input.Dp;
-        rc = pt.design.RC;
-        CL_c = pt.design.CL;
-        rc_expanded = [RhoRp,rc,1];
+        rc = pt.design.rc;
+        CL_c = pt.design.CL_c;
+        rc_expanded = [RhoRp;rc;1];
         CL_c_expanded = spline(rc,CL_c,rc_expanded);
         
         % 如果此时被按下的按钮不为一个，则说明1也被按下
@@ -2619,7 +2702,7 @@ function CLResultfcn(hObject,~,PlotsStrings)
         % 绘制升力系数曲线
         CL_Result_line = plot(coordinate,rc_expanded,CL_c_expanded,...
                               'linewidth',2,...
-                              'color',linecolor1_1);
+                              'color',linecolor3_1);
         hold(coordinate,'on');
         grid(coordinate,'on');
         box(coordinate,'on');
@@ -2627,12 +2710,20 @@ function CLResultfcn(hObject,~,PlotsStrings)
         % 绘制升力系数散点
         CL_Result_point = scatter(coordinate,rc,CL_c,...
                                   'marker','o',...
-                                  'markeredgecolor',linecolor1_1,...
-                                  'markerfacecolor',linecolor1_2,...
+                                  'markeredgecolor',linecolor3_1,...
+                                  'markerfacecolor',linecolor3_2,...
                                   'sizedata',25);
-                              
+        
+        % 设置坐标轴自动调整
         xlim(coordinate,'auto');
         ylim(coordinate,'auto');
+        
+        if pushednum == 1
+            legend(CL_Result_line,'CL');
+        else
+            legend([CL_Input_line,CL_Result_line],'Input:CL','Result:CL');
+            set(PlotsPanel,'title','升力系数分布曲线(来自输入/来自结果)');
+        end    
         
         xlabel(coordinate,'rc','fontsize',16,'fontname','Times');
         ylabel(coordinate,'CL','fontsize',16,'fontname','Times');
@@ -2710,8 +2801,6 @@ function DeleteTab(hObject,~)
         tabpagename{index} = get(tabpage(index),'title');
     end 
     menutabpagename = get(hObject,'text');
-    disp(tabpagename{3});
-    disp(menutabpagename);
     if find(ismember(tabpagename,menutabpagename))
         % “标签页”菜单下有与标签页相对应的项
         confirmation = sprintf('确定要删除当前标签页吗？');

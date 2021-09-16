@@ -1,56 +1,3 @@
-% ----------------------------------------------------------------------- %
-%                                                                         %
-%                              0111000                                    %
-%                           100 1 100 001                                 %
-%                         10    1  1  1 00                                %
-%                        01  1  1  1      0                               %
-%                       0 1  1  1   1  1 1 0                              %
-%                       0   1   1   1  1  1 0                             %
-%                       0 1     1   1  1  1 0                             %
-%                       0 1  1  1   1  0  1 0                             %
-%                       0 1  1  1   0  1    0                             %
-%                       01 1        1  1 1 0                              %
-%                        0    0  1  0 1   0                               %
-%                         0         1    0                                %
-%                    10010 0 1101111110111                                %
-%                  10 1 1  1111111111 11 11                               %
-%                 0 1 1 1 11111111101011010111                            %
-%                01 11    11111111 1  1    1 110                          %
-%               011    1 1 111111110011  1 1 1 110                        %
-%               0   11 1 1 1 111      0  1 1 1   10                       %
-%               0 1   11  1  0         1 1 1 1 1 1 0                      %
-%               1  11 1 1   11          0  1 1 1 1 11                     %
-%                0     1 1  0           011  1 1 1 10                     %
-%                10 1   1  0             0  1 1 1  11                     %
-%                 10     01               01      10                      %
-%                   10001                   001 100                       %
-%                                             111                         %
-%                                                                         %
-%             ____                   _____                                %
-%            / __ \                 |  __ \                               %
-%           | |  | |_ __   ___ _ __ | |__) | __ ___  _ __                 %
-%           | |  | | '_ \ / _ \ '_ \|  ___/ '__/ _ \| '_ \                %
-%           | |__| | |_) |  __/ | | | |   | | | (_) | |_) |               %
-%            \____/| .__/ \___|_| |_|_|   |_|  \___/| .__/                %
-%                  | |                              | |                   %
-%                  |_|                              |_|                   %
-%                                                                         %
-%             An integrated rotor design and analysis tool.               %
-%                                                                         %
-%                                                                         %
-% Copyright (C) 2011, Brenden Epps.                                       %
-%                                                                         %
-% This program is free software; you can redistribute it and/or modify it %
-% under the terms of the GNU General Public License as published by the   %
-% Free Software Foundation.                                               %
-%                                                                         %
-% This program is distributed in the hope that it will be useful, but     %
-% WITHOUT ANY WARRANTY; without even the implied warranty of              %
-% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                    %
-% See the GNU General Public License for more details.                    %
-%                                                                         %
-% ----------------------------------------------------------------------- %
-
 % -------------------------------------------------------------------------
 % Created: 3/20/11, Brenden Epps
 %
@@ -81,7 +28,7 @@
 %
 % -------------------------------------------------------------------------
 
-function [CoD2, t0oD2] = ABS_Blade(RC,t0oD,t0oc,TANtheta,  CP,R,rho,Vs,N,Z)
+function [CoD2, t0oD2] = Chord_ABS_Blade(RC,t0oD,t0oc,TANtheta,  CP,R,rho,Vs,N,Z)
 
 D = 2*R;
 
@@ -146,7 +93,7 @@ k  = 4;           % polynomial order (k == 4 for cubic spline)
 Mk = k+m+1;       % number of  spanwise knots
 
 % ------------------------- Find spline parameters using centripital method
-dseg = ( diff(RC').^2 + diff(t0oD').^2 ).^(1/4);
+dseg = ( diff(RC).^2 + diff(t0oD).^2 ).^(1/4);
 
 dtot = sum(dseg);
 
@@ -182,8 +129,8 @@ end
 %   size(AT)   = [Md,1], xc2 spline amplitudes 
 %
 % --------------------------------- Solve for spline amplitudes, P(uspline)
-AR = linsolve(BC,RC');
-AT = linsolve(BC,t0oD');
+AR = linsolve(BC,RC);
+AT = linsolve(BC,t0oD);
 
 %
 % % -------------------------------------------------------- Check solution

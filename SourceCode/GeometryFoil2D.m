@@ -28,11 +28,21 @@
 %   alphaItilde           [deg] NACA data ideal angle of attack
 %   CLItilde              NACA data ideal lift coefficient
 %   f0octilde             F0/C  NACA data for CLI == CLItilde   
-%
-% 该函数目前还不支持Meanline_x和Thickness_x为元胞数组的情况，需要修改
+% -------------------------------------------------------------------------
+% 从最终输出来看：
+% Meanline决定所有和弦线、凸缘线相关的内容，如：
+% 拱度（拱度分布和最大拱度）、攻角
+% Thickness决定所有和厚度相关的内容
+% 厚度分布
+% 
+% 值得注意的是：最大拱度和最大厚度的值均不仅由Meanline和Thickness决定，是由优化
+% 函数所计算的弦径比、厚径比和Meanline提供的拱弦比共同决定
 % -------------------------------------------------------------------------
 
-function [F0oCtilde,CLItilde,AlphaItilde,FoF0,dFoF0dx,ToT0,As0] = GeometryFoil2D(Meanline_x,Thickness_x,x0)
+function [F0oCptilde,CLItilde,AlphaItilde,FoF0,dFoF0dx,ToT0,As0] = GeometryFoil2D(Meanline_x,Thickness_x,x0)
+    if nargin < 3
+        x0 = 0:0.1:1;
+    end
     %% 凸缘线类型相关参数
     if strcmp(Meanline_x,'NACA a=0.8 (modified)')  
         % NACA a=0.8 (modified)
@@ -52,11 +62,11 @@ function [F0oCtilde,CLItilde,AlphaItilde,FoF0,dFoF0dx,ToT0,As0] = GeometryFoil2D
         
         CLItilde = 1.00;                % NACA data ideal lift coefficient
         
-        F0oCtilde = max(FoC);           % F0/C NACA data for CLI == CLItilde  
+        F0oCptilde = max(FoC);           % F0/C NACA data for CLI == CLItilde  
           
-        FoF0 = FoC/F0oCtilde;           % F/F0 at x = x/C positions
+        FoF0 = FoC/F0oCptilde;           % F/F0 at x = x/C positions
         
-        dFoF0dx = dFdx/F0oCtilde;       % d(F/F0)/d(x/C) at x = x/C positions 
+        dFoF0dx = dFdx/F0oCptilde;       % d(F/F0)/d(x/C) at x = x/C positions 
 
         FoF0 = pchip(x,FoF0,x0);        % F/F0 at x0 = x/C positions
         
@@ -93,7 +103,7 @@ function [F0oCtilde,CLItilde,AlphaItilde,FoF0,dFoF0dx,ToT0,As0] = GeometryFoil2D
         end
         AlphaItilde  = 1.54;                     % [deg] NACA data ideal angle of attack        
            CLItilde  = 1.00;                     % [ ]   NACA data ideal lift coefficient
-          F0oCtilde  = maxF;                     % F0/C  NACA data for CLI == CLItilde      
+          F0oCptilde  = maxF;                     % F0/C  NACA data for CLI == CLItilde      
 
           dFoF0dx  = dfdx;
           
@@ -104,10 +114,10 @@ function [F0oCtilde,CLItilde,AlphaItilde,FoF0,dFoF0dx,ToT0,As0] = GeometryFoil2D
         dFdx = [0.54823 .48535 .44925 .40359 .34104 .27718 .23868 .21050 .16892 .13734 .11101 .08775 .06634 .04601 .02613 .00620 -.01433 -.03611 -.06010 -.08790 -.12311   -.18412 -.23921 -.25583 -.24904 -.20385];
         AlphaItilde  = 1.54;                     % [deg] NACA data ideal angle of attack        
            CLItilde  = 1.00;                     % [ ]   NACA data ideal lift coefficient
-          F0oCtilde  = max(FoC);                 % F0/C  NACA data for CLI == CLItilde      
+          F0oCptilde  = max(FoC);                 % F0/C  NACA data for CLI == CLItilde      
         
-        FoF0         =    FoC/F0oCtilde;         %   F/F0         at x = x/C positions 
-        dFoF0dx    = dFdx/F0oCtilde;         % d(F/F0)/d(x/C) at x = x/C positions 
+        FoF0         =    FoC/F0oCptilde;         %   F/F0         at x = x/C positions 
+        dFoF0dx    = dFdx/F0oCptilde;         % d(F/F0)/d(x/C) at x = x/C positions 
 
         FoF0         = pchip(x, FoF0    ,x0);  %   F/F0         at  x0 = x/C positions 
         dFoF0dx    = pchip(x,dFoF0dx,x0);  % d(F/F0)/d(x/C) at  x0 = x/C positions 
@@ -116,7 +126,7 @@ function [F0oCtilde,CLItilde,AlphaItilde,FoF0,dFoF0dx,ToT0,As0] = GeometryFoil2D
         % NACA a=0.8
         AlphaItilde  = 1.54;                     % [deg] NACA data ideal angle of attack        
            CLItilde  = 1.00;                     % [ ]   NACA data ideal lift coefficient
-          F0oCtilde  = 0.0679;                 % F0/C  NACA data for CLI == CLItilde  
+          F0oCptilde  = 0.0679;                 % F0/C  NACA data for CLI == CLItilde  
 
         x       = [0.0000 0.0125 0.0250 0.0500 0.0750 0.1000 0.1500 0.2000 0.3000 0.4000 0.4500 0.5000 0.6000 0.7000 0.8000 0.9000 0.9500 1.0000];
         FoF0      = [0.0000 0.0907 0.1586 0.2712 0.3657 0.4482 0.5869 0.6993 0.8635 0.9615 0.9881 1.0000 0.9786 0.8892 0.7027 0.3586 0.1713 0.0000];
@@ -131,7 +141,7 @@ function [F0oCtilde,CLItilde,AlphaItilde,FoF0,dFoF0dx,ToT0,As0] = GeometryFoil2D
         % Therefore, set CLItilde and f0octilde such that f0oc == f0octilde * CL / CLItilde
         AlphaItilde = 0;
         CLItilde = 1; 
-        F0oCtilde = 1  / (4*pi);
+        F0oCptilde = 1  / (4*pi);
          FoF0       = (1-(2*(x0-0.5)).^2);    
         dFoF0dx   = -8   *(x0-0.5);    
     
@@ -141,7 +151,7 @@ function [F0oCtilde,CLItilde,AlphaItilde,FoF0,dFoF0dx,ToT0,As0] = GeometryFoil2D
         % However, set CLItilde == 1 such that f0oc == f0octilde * CL / CLItilde does not crash
         AlphaItilde = 0;
         CLItilde    = 1; 
-        F0oCtilde   = 0;
+        F0oCptilde   = 0;
          FoF0       = 0*x0;  
         dFoF0dx   = 0*x0;
     

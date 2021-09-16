@@ -134,10 +134,24 @@ VSTAR     = sqrt((VAC + UADUCT + UASTAR).^2 + (pi*RC/Js + VTC + UTSTAR).^2);
 sin_BetaI = (UADUCT   + VAC + UASTAR)./VSTAR;
 cos_BetaI = (pi*RC/Js + VTC + UTSTAR)./VSTAR;
 % -------------------------------------------------------------------------
+% disp('VSTAR = ');
+% disp(VSTAR);
+% disp('G = ');
+% disp(G);
+% disp('cos_BetaI = ');
+% disp(cos_BetaI);
+% disp('CoD = ');
+% disp(CoD);
+% disp('CD = ');
+% disp(CD);
+% disp('sin_BetaI = ');
+% disp(sin_BetaI);
+% disp('DR = ');
+% disp(DR);
 
 % -------------------------------------------------------------------------
-CTP = 4*Z*sum((VSTAR.*G'.*cos_BetaI - (1/(2*pi)).*VSTAR.^2.*CoD.*CD.*sin_BetaI)    .*DR);
-CQ  = 4*Z*sum((VSTAR.*G'.*sin_BetaI + (1/(2*pi)).*VSTAR.^2.*CoD.*CD.*cos_BetaI).*RC.*DR);
+CTP = 4*Z*sum((VSTAR.*G.*cos_BetaI - (1/(2*pi)).*VSTAR.^2.*CoD.*CD.*sin_BetaI)    .*DR);
+CQ  = 4*Z*sum((VSTAR.*G.*sin_BetaI + (1/(2*pi)).*VSTAR.^2.*CoD.*CD.*cos_BetaI).*RC.*DR);
 % -------------------------------------------------------------------------
 
 % ----------------- Compute hub effect on thrust coefficient (Kerwin p.181)
@@ -147,7 +161,6 @@ else
     CTH = 0;
 end
 % -------------------------------------------------------------------------
-
 
 CT    =  CTP+CTH + CTD;     % total thrust coefficient
 
@@ -165,7 +178,6 @@ KQ    = CQ *Js^2*pi/16;     % total     torque coefficient
   EFFYo = CT/CP;              %   open-water   efficiency
   EFFY  = EFFYo*VMIV;         % inflow-adapted efficiency, EFFY === EFFYa by convention (Kerwin)
 % EFFYw = EFFYo*VMWV;         %   wake-adapted efficiency
-
 
   ADEFo  =              2*Js/(Js+sqrt(Js^2+TAU*(8/pi)*KT));     % == 2/(1+sqrt(1+TAU*CT       ));     open-water   actuator disk efficiency
   ADEFFY =              2*Ja/(Ja+sqrt(Ja^2+TAU*(8/pi)*KT));     % == 2/(1+sqrt(1+TAU*CT/VMIV^2));   inflow-adapted actuator disk efficiency
