@@ -1738,11 +1738,11 @@ function Execute(~,~)
     % 将优化结果保存至pt中
     save(pt.filename,'pt');
     
-%     % 生成几何结构
-%     pt.geometry = Geometry(pt);
-%     
-%     % 将几何结构保存至pt中
-%     save(pt.filename,'pt');
+    % 生成几何结构
+    pt.geometry = Geometry(pt);
+    
+    % 将几何结构保存至pt中
+    save(pt.filename,'pt');
 end
 
 %% 生成结果界面
