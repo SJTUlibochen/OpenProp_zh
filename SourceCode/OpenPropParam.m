@@ -1,57 +1,3 @@
-% ----------------------------------------------------------------------- %
-%                                                                         %
-%                              0111000                                    %
-%                           100 1 100 001                                 %
-%                         10    1  1  1 00                                %
-%                        01  1  1  1      0                               %
-%                       0 1  1  1   1  1 1 0                              %
-%                       0   1   1   1  1  1 0                             %
-%                       0 1     1   1  1  1 0                             %
-%                       0 1  1  1   1  0  1 0                             %
-%                       0 1  1  1   0  1    0                             %
-%                       01 1        1  1 1 0                              %
-%                        0    0  1  0 1   0                               %
-%                         0         1    0                                %
-%                    10010 0 1101111110111                                %
-%                  10 1 1  1111111111 11 11                               %
-%                 0 1 1 1 11111111101011010111                            %
-%                01 11    11111111 1  1    1 110                          %
-%               011    1 1 111111110011  1 1 1 110                        %
-%               0   11 1 1 1 111      0  1 1 1   10                       %
-%               0 1   11  1  0         1 1 1 1 1 1 0                      %
-%               1  11 1 1   11          0  1 1 1 1 11                     %
-%                0     1 1  0           011  1 1 1 10                     %
-%                10 1   1  0             0  1 1 1  11                     %
-%                 10     01               01      10                      %
-%                   10001                   001 100                       %
-%                                             111                         %
-%                                                                         %
-%             ____                   _____                                %
-%            / __ \                 |  __ \                               %
-%           | |  | |_ __   ___ _ __ | |__) | __ ___  _ __                 %
-%           | |  | | '_ \ / _ \ '_ \|  ___/ '__/ _ \| '_ \                %
-%           | |__| | |_) |  __/ | | | |   | | | (_) | |_) |               %
-%            \____/| .__/ \___|_| |_|_|   |_|  \___/| .__/                %
-%                  | |                              | |                   %
-%                  |_|                              |_|                   %
-%                                                                         %
-%             An integrated rotor design and analysis tool.               %
-%                                                                         %
-%                                                                         %
-% Copyright (C) 2011, Brenden Epps.                                       %
-%                                                                         %
-% This program is free software; you can redistribute it and/or modify it %
-% under the terms of the GNU General Public License as published by the   %
-% Free Software Foundation.                                               %
-%                                                                         %
-% This program is distributed in the hope that it will be useful, but     %
-% WITHOUT ANY WARRANTY; without even the implied warranty of              %
-% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                    %
-% See the GNU General Public License for more details.                    %
-%                                                                         %
-% ----------------------------------------------------------------------- %
-
-
 % =========================================================================
 % OpenProp_v3.3.4
 % Last modified: 10/21/2013 Brenden Epps
@@ -60,7 +6,7 @@
 % This code runs the parametric-design GUI.
 %
 %--------------------------------------------------------------------------
-
+%文件路径问题需要修复
 % =========================================================================
 % ========================== Parametric Analysis ==========================
 
@@ -68,7 +14,7 @@ function OpenPropParam
 
 clear all;
 
-addpath ../SourceCode
+addpath ./SourceCode
 
 
 %%
@@ -171,9 +117,9 @@ filename        = 'DefaultPropeller';                           % Filename prefi
 % -------------------------- GUI Switching Check --------------------------
 % 
 
-if exist('OpenPropTempFile0307122010.mat','file')
+if exist('OpenPropTempFile.mat','file')
     
-    load('OpenPropTempFile0307122010.mat');
+    load('OpenPropTempFile.mat');
     
     Z_def       = Z;
     N_def       = N;
@@ -206,7 +152,7 @@ if exist('OpenPropTempFile0307122010.mat','file')
     TAU_def         = 1;                                        % Thrust ratio
     CDd_def         = 0.008;                                    % Duct section drag coefficient
     
-    delete('OpenPropTempFile0307122010.mat');
+    delete('OpenPropTempFile.mat');
     
 end
 
@@ -899,7 +845,7 @@ pt.date         = date;
 pt.parinput     = parinput;
 pt.paroutput	= paroutput;
 
-pt.input.GUI_flag     = 1;
+pt.input.Geometry_flag     = 1;
 
 if exist([filename '.mat'],'file')
     
@@ -1335,7 +1281,7 @@ if get(Select,'value')==1
     
     %%
     
-    save('OpenPropTempFile0307122010','Zmin','ZIncrement','ZMax','Nmin','NIncrement','NMax',...
+    save('OpenPropTempFile','Zmin','ZIncrement','ZMax','Nmin','NIncrement','NMax',...
         'Dmin','DIncrement','DMax','THRUST','Vs','Dhub','rho','Mp','Np',...
         'Propeller_flag','Hub_flag','Duct_flag',...
         'Chord_flag','Viscous_flag','Plot_flag','Make2Dplot_flag','Make3Dplot_flag',...

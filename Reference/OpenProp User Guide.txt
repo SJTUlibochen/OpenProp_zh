@@ -195,14 +195,14 @@ Command line data input/output:
 	design = 
 
         part1: '------ Section properties, size (1,Mp) ------'
-           RC: [1x20 double] 					% radial coordinate of control points / R
-           DR: [1x20 double] 					% delta(RV)
-            G: [1x20 double] 					% circulation / (2*pi*R*Vs)
-          VAC: [1x20 double] 					%      axial free-stream speed / Vs
-          VTC: [1x20 double]					% tangential free-stream speed / Vs
-       UASTAR: [1x20 double] 					%      axial inducted velocity / Vs
-       UTSTAR: [1x20 double] 					% tangential inducted velocity / Vs
-        VSTAR: [1x20 double] 					% total inflow speed / Vs
+           RC: [1x20 double] 					% radial coordinate of control points / R	%控制点径向位置
+           DR: [1x20 double] 					% delta(RV)	%RV径向位置之间的差值
+            G: [1x20 double] 					% circulation / (2*pi*R*Vs)	%环量	%环量曲线的横坐标是RC
+          VAC: [1x20 double] 					% axial free-stream speed / Vs	%轴向自由流流速/行进速度
+          VTC: [1x20 double]					% tangential free-stream speed / Vs	%切向自由流流速/行进速度	%这两个与input中相同
+       UASTAR: [1x20 double] 					% axial inducted velocity / Vs		%轴向无量纲诱导速度
+       UTSTAR: [1x20 double] 					% tangential inducted velocity / Vs	%切向无量纲诱导速度
+        VSTAR: [1x20 double] 					% total inflow speed / Vs		%总流入速度
         TANBC: [1x20 double] 					% tangent of free-stream  inflow angle, Beta
        TANBIC: [1x20 double] 					% tangent of wake-aligned inflow angle, BetaI
            CL: [1x20 double] 					% section lift coefficient
@@ -211,8 +211,8 @@ Command line data input/output:
          t0oc: [1x20 double] 					% thickness / chord
          t0oD: [1x20 double] 					% thickness / diameter
         part2: '------ Other properties  ------'
-    converged: 1		 				% 1 == solver converged, 0 == solver did not converge
-    iteration: 7	 					% iteration number at conclusion of solver
+    converged: 1		 				% 1 == solver converged, 0 == solver did not converge	%计算是否收敛
+    iteration: 7	 					% iteration number at conclusion of solver		%当前结果计算的迭代数
            RV: [1x21 double] 					% radial coordinate of vortex lattice points / R
       Rhub_oR: 0.2000 						% Rhub / R
           EAR: 0.6058 						% expanded area ratio

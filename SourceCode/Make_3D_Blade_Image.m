@@ -52,14 +52,14 @@
 % ----------------------------------------------------------------------- %
 
 
-function [] = Make_3D_Blade_Image(X3D,Y3D,Z3D,Duct_flag,Rduct_oR,Cduct_oR,Xduct_oR,Hub_flag,Rhub_oR,Js,BetaI_c,theta,TANBIV,RV,Rm,GUI_flag,Plots,PlotPanels)
+function [] = Make_3D_Blade_Image(X3D,Y3D,Z3D,Duct_flag,Rduct_oR,Cduct_oR,Xduct_oR,Hub_flag,Rhub_oR,Js,BetaI_c,theta,TANBIV,RV,Rm,Geometry_flag,Plots,PlotPanels)
 %在使用Make_3D_Blade_Image的程序中没有传递参数少于18的情况
 %这个判断目前是没有用的
 if nargin <= 12
     Rm = 1;
-    GUI_flag = 0;
+    Geometry_flag = 0;
 elseif nargin == 13
-    GUI_flag = 0; 
+    Geometry_flag = 0; 
 end
 % -------------------------------------------------------------------------
 Mp       = size(X3D,1)-1;
@@ -78,7 +78,7 @@ Dduct    = 2*Rduct;
 
 
 % -------------------------------------------------------------------------
-    if GUI_flag
+    if Geometry_flag
         
         set(0,'CurrentFigure',Plots);
         h = axes('parent',PlotPanels(14));

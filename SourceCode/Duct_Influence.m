@@ -1,63 +1,3 @@
-% ----------------------------------------------------------------------- %
-%                                                                         %
-%                              0111000                                    %
-%                           100 1 100 001                                 %
-%                         10    1  1  1 00                                %
-%                        01  1  1  1      0                               %
-%                       0 1  1  1   1  1 1 0                              %
-%                       0   1   1   1  1  1 0                             %
-%                       0 1     1   1  1  1 0                             %
-%                       0 1  1  1   1  0  1 0                             %
-%                       0 1  1  1   0  1    0                             %
-%                       01 1        1  1 1 0                              %
-%                        0    0  1  0 1   0                               %
-%                         0         1    0                                %
-%                    10010 0 1101111110111                                %
-%                  10 1 1  1111111111 11 11                               %
-%                 0 1 1 1 11111111101011010111                            %
-%                01 11    11111111 1  1    1 110                          %
-%               011    1 1 111111110011  1 1 1 110                        %
-%               0   11 1 1 1 111      0  1 1 1   10                       %
-%               0 1   11  1  0         1 1 1 1 1 1 0                      %
-%               1  11 1 1   11          0  1 1 1 1 11                     %
-%                0     1 1  0           011  1 1 1 10                     %
-%                10 1   1  0             0  1 1 1  11                     %
-%                 10     01               01      10                      %
-%                   10001                   001 100                       %
-%                                             111                         %
-%                                                                         %
-%             ____                   _____                                %
-%            / __ \                 |  __ \                               %
-%           | |  | |_ __   ___ _ __ | |__) | __ ___  _ __                 %
-%           | |  | | '_ \ / _ \ '_ \|  ___/ '__/ _ \| '_ \                %
-%           | |__| | |_) |  __/ | | | |   | | | (_) | |_) |               %
-%            \____/| .__/ \___|_| |_|_|   |_|  \___/| .__/                %
-%                  | |                              | |                   %
-%                  |_|                              |_|                   %
-%                                                                         %
-%             An integrated rotor design and analysis tool.               %
-%                                                                         %
-%                                                                         %
-% Copyright (C) 2011, Brenden Epps.                                       %
-%                                                                         %
-% This program is free software; you can redistribute it and/or modify it %
-% under the terms of the GNU General Public License as published by the   %
-% Free Software Foundation.                                               %
-%                                                                         %
-% This program is distributed in the hope that it will be useful, but     %
-% WITHOUT ANY WARRANTY; without even the implied warranty of              %
-% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                    %
-% See the GNU General Public License for more details.                    %
-%                                                                         %
-% ----------------------------------------------------------------------- %
-
-
-% =========================================================================
-% ======================================================== Duct_Influence.m
-% Created: J.M. Stubblefield, 2008    (originally named ductVort)
-% Last Modified: 11/2/2011, Brenden Epps
-%
-% -------------------------------------------------------------------------
 % This function:
 %   1) Forms a discrete vortex ring representation of a duct with 
 %           -- chord length Cduct_oR and axial offset Xduct_oR,
@@ -112,93 +52,77 @@
 % =========================================================================
 
 function [XdRING,GdRING,UADIF] = Duct_Influence(Rduct_oR,Cduct_oR,Xduct_oR,RC)
+    Mp = length(RC);
+    % Setup vortex ring axial spacing
+    % Note that the code is numerically unstable for Nd > 20 and generally 
+    % slow for Nd > 10. Nd must be even.
+    Nd = 12;             % number of vortex rings 
+    dS  = 1/Nd;          % (even spacing between vortex rings) / Cduct_oR
+    hdS = 0.5*dS;        % half of dS
 
-Mp = length(RC);  % number of panels
+    % -------------------------------------------------------------------------
+    % Compute the circulation on the vortex rings which each represent 
+    % a section of length dS located at position XdRING of a NACA a=0.8 
+    % mean line (L.E.=0.0, T.E.=1.0) that has unit circulation 1 [m^2/s].
+    %
+    XdRING  = zeros(1,Nd);
+    GdRING  = zeros(1,Nd);
 
-% % Test code:
-% R = 1;
-% Rduct_oR = 1;
-% Mp = 10;
-% RV = linspace(0.2*R,R,Mp+1);
-% RC = 0.5*(RV(1:Mp)+RV(2:Mp+1));
-% Cduct_oR = R;
-% Nd = 10;
+    % Note that since Gamma_d*GdRING(n) is the circulation of ring (n), then
+    %    the circulation distribution of the rings, GdRING, is actually unitless!
+    %    If Gamma_d is scaled or normalized, then GdRING remains unitless and
+    %    always gives the correct circulation distribution.
+    for n=1:Nd
+        XdRING(n) = (n-1)*dS+hdS;
 
-% ----------------------------------------- Setup vortex ring axial spacing
-% Note that the code is numerically unstable for Nd > 20 and generally 
-% slow for Nd > 10. Nd must be even.
-Nd = 12;             % number of vortex rings 
-% if rem(Nd,2)~=0      % ensures Nd is even
-%     Nd = Nd+1;
-% end
-
-
-dS  = 1/Nd;          % (even spacing between vortex rings) / Cduct_oR
-hdS = 0.5*dS;        % half of dS
-
-% -------------------------------------------------------------------------
-% Compute the circulation on the vortex rings which each represent 
-% a section of length dS located at position XdRING of a NACA a=0.8 
-% mean line (L.E.=0.0, T.E.=1.0) that has unit circulation 1 [m^2/s].
-%
-XdRING  = zeros(1,Nd);
-GdRING  = zeros(1,Nd);
-
-% Note that since Gamma_d*GdRING(n) is the circulation of ring (n), then
-%    the circulation distribution of the rings, GdRING, is actually unitless!
-%    If Gamma_d is scaled or normalized, then GdRING remains unitless and
-%    always gives the correct circulation distribution.
-for n=1:Nd
-    XdRING(n) = (n-1)*dS+hdS;
-
-    x2 = XdRING(n) + hdS;
-    x1 = XdRING(n) - hdS;
-    if x2 <= 0.8
-        GdRING(n) = dS/0.9;
-    elseif x1 >= 0.8
-        y1 = 1.0 - (x1 - 0.8)/0.2;
-        y2 = 1.0 - (x2 - 0.8)/0.2;
-        GdRING(n) = dS*0.5*(y1 + y2)/0.9;
-    else
-        y2 = 1.0 - (x2 - 0.8)/0.2;
-        front    = 0.8 - x1;
-        back     = 0.5*(1.0 + y2)*(x2 - 0.8);
-        GdRING(n) = (front + back)/0.9;
+        x2 = XdRING(n) + hdS;
+        x1 = XdRING(n) - hdS;
+        if x2 <= 0.8
+            GdRING(n) = dS/0.9;
+        elseif x1 >= 0.8
+            y1 = 1.0 - (x1 - 0.8)/0.2;
+            y2 = 1.0 - (x2 - 0.8)/0.2;
+            GdRING(n) = dS*0.5*(y1 + y2)/0.9;
+        else
+            y2 = 1.0 - (x2 - 0.8)/0.2;
+            front    = 0.8 - x1;
+            back     = 0.5*(1.0 + y2)*(x2 - 0.8);
+            GdRING(n) = (front + back)/0.9;
+        end
     end
-end
 
-LED      = -(Nd/2)*dS;                  % X position of "leading edge" vortex ring
-XdRING = XdRING + LED;                  % X position of vortex rings / Cduct_oR
-XdRING = XdRING * Cduct_oR  + Xduct_oR; % X position of vortex rings / R
+    LED      = -(Nd/2)*dS;                  % X position of "leading edge" vortex ring
+    XdRING = XdRING + LED;                  % X position of vortex rings / Cduct_oR
+    XdRING = XdRING * Cduct_oR  + Xduct_oR; % X position of vortex rings / R
 
 
-% % plot(XdRING,GdRING,'*')
+    % % plot(XdRING,GdRING,'*')
 
-% ------------------------------------------------------------------------- 
-% Calculate duct influence function (UADIF) on the UASTAR
-% axial velocity at propeller lifting line control points
-    % Note: No tangential influence
-    % Note: Radial influence does not create a force on radial lifting line
-    
-UADIF = zeros(1,Mp);            % axial influence of unit strength
+    % ------------------------------------------------------------------------- 
+    % Calculate duct influence function (UADIF) on the UASTAR
+    % axial velocity at propeller lifting line control points
+        % Note: No tangential influence
+        % Note: Radial influence does not create a force on radial lifting line
 
-for m=1:Mp                      % for each control point on lifting line    
-    for n=1:Nd                  % cycle thru all vortex rings on duct
-        UAD      = vRing(XdRING(n),Rduct_oR,0,RC(m),GdRING(n));
-        
-        UADIF(m) = UADIF(m) + UAD;
+    UADIF = zeros(1,Mp);            % axial influence of unit strength
+
+    for m=1:Mp                      % for each control point on lifting line    
+        for n=1:Nd                  % cycle thru all vortex rings on duct
+            UAD      = vRing(XdRING(n),Rduct_oR,0,RC(m),GdRING(n));
+
+            UADIF(m) = UADIF(m) + UAD;
+        end
     end
-end
 
-% The discrete vortex ring formulation breaks down near the duct, so 
-% extrapolate UADIF for RC > 0.9*Rduct/R
-indices = find( RC <= 0.9*Rduct_oR );
-UADIF   = interp1(RC(indices),UADIF(indices),RC,'linear','extrap');
+    % The discrete vortex ring formulation breaks down near the duct, so 
+    % extrapolate UADIF for RC > 0.9*Rduct/R
+    indices = find( RC <= 0.9*Rduct_oR );
+    UADIF   = interp1(RC(indices),UADIF(indices),RC,'linear','extrap');
 
 
-% Since GdRING is non-dimensionalized with respect to Gd, then
-% UADIF represents the axial flow velocity induced per unit Gd, which
-% is the correct influence function.
+    % Since GdRING is non-dimensionalized with respect to Gd, then
+    % UADIF represents the axial flow velocity induced per unit Gd, which
+    % is the correct influence function.
 
 end  % ========================================= END ductInfluence Function
 % =========================================================================
@@ -240,37 +164,33 @@ end  % ========================================= END ductInfluence Function
 % =========================================================================
 
 function [UA,UR] = vRing(Xring,Rring,XF,RF,Gring)
+    if Rring == 0               %stops function if Rring = 0
+        UA = 0;
+        UR = 0;
+        return
+    end
+    if XF == Xring && RF == Rring          % stop if field point on vortex ring
+        UA = 0;
+        UR = 0;
+        return
+    end
+    % --------------------------------------- Non-dimensional coordinates (x,r)
+    x = (XF-Xring)/Rring;                       %x/r' from Kuchemann
+    r =  RF       /Rring;                       %r/r' from Kuchemann
 
-if Rring == 0               %stops function if Rring = 0
-    UA = 0;
-    UR = 0;
-    return
+    %Elliptic integral method (Kuchemann p. 305)
+    %uses parameter k where k^2 = m for elliptic integrals
+
+    k     = sqrt(4*r/(x^2+(r+1)^2));
+    % [K,E] = ellipke(k^2);
+    [K,E] = elliptic12(pi/2,k^2);
+
+    UA = Gring/(Rring)/sqrt(x^2+(r+1)^2)*(K-(1+2*(r-1)/(x^2+(r-1)^2))*E);
+
+    if r==0
+        UR = 0;
+    else
+        UR = Gring/(Rring)*(-x)/r/sqrt(x^2+(r+1)^2)*(K-(1+2*r/(x^2+(r-1)^2))*E);
+    end
+
 end
-
-if XF == Xring && RF == Rring          % stop if field point on vortex ring
-    UA = 0;
-    UR = 0;
-    return
-end
-
-% --------------------------------------- Non-dimensional coordinates (x,r)
-x = (XF-Xring)/Rring;                       %x/r' from Kuchemann
-r =  RF       /Rring;                       %r/r' from Kuchemann
-
-%Elliptic integral method (Kuchemann p. 305)
-%uses parameter k where k^2 = m for elliptic integrals
-
-k     = sqrt(4*r/(x^2+(r+1)^2));
-% [K,E] = ellipke(k^2);
-[K,E] = elliptic12(pi/2,k^2);
-
-UA = Gring/(Rring)/sqrt(x^2+(r+1)^2)*(K-(1+2*(r-1)/(x^2+(r-1)^2))*E);
-
-if r==0
-    UR = 0;
-else
-    UR = Gring/(Rring)*(-x)/r/sqrt(x^2+(r+1)^2)*(K-(1+2*r/(x^2+(r-1)^2))*E);
-end
-
-end  % ================================================= END vRing Function
-% =========================================================================
