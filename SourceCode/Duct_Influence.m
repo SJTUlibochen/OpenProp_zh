@@ -1,7 +1,8 @@
 % This function:
 %   1) Forms a discrete vortex ring representation of a duct with 
-%           -- chord length Cduct_oR and axial offset Xduct_oR,
-%           -- radius Rduct_oR, and
+%           -- chord length CdoRp
+%           -- axial offset XdoRp
+%           -- radius RdoRp
 %           -- a NACA a=0.8 meanline 
 %
 %   2) Calculates axial velocity duct influence function (UADIF)
@@ -10,9 +11,9 @@
 % -------------------------------------------------------------------------
 % Model parameters:
 %
-%     Rduct_oR                  duct radius / propeller radius
-%     Cduct_oR                  duct chord  / propeller radius
-%     Xduct_oR                  location of duct mid-chord downstream of propeller (Xduct = 0 by default)
+%     RdoRp                  duct radius / propeller radius
+%     CdoRp                  duct chord  / propeller radius
+%     XdoRp                  location of duct mid-chord downstream of propeller (Xduct = 0 by default)
 %
 %     XdRING            [1,Nd], x/R location of each vortex ring downstream of propeller
 %     VARING            [1,Nd], (axial free-stream velocity at duct)/Vs
@@ -30,7 +31,7 @@
 % Influence of propeller on duct:
 %
 %   (DAHIF ,DRHIF)     [Nd,Mp], (axial/radial horseshoe influence functions of prop on duct)*(2*pi*R)
-%   (UARING,URRING)    [1,Nd],  (axial/radial velocity induced at duct (XdRING,Rduct_oR) by prop) / Vs
+%   (UARING,URRING)    [1,Nd],  (axial/radial velocity induced at duct (XdRING,RdoRp) by prop) / Vs
 %
 %
 % Influence of duct on propeller:
@@ -43,7 +44,7 @@
 % -------------------------------------------------------------------------
 %
 % Inputs:
-%     Rduct_oR,Cduct_oR,Xduct_oR
+%     RdoRp,CdoRp,XdoRp
 %     RC                        radius of control points on lifting line / R
 %
 % Outputs:
@@ -51,13 +52,12 @@
 %
 % =========================================================================
 
-function [XdRING,GdRING,UADIF] = Duct_Influence(Rduct_oR,Cduct_oR,Xduct_oR,RC)
-    Mp = length(RC);
+function [XdRING,GdRING,UADIF] = Duct_Influence(RdoRp,CdoRp,XdoRp,rc,Nd)
+    Mp = length(rc);
     % Setup vortex ring axial spacing
     % Note that the code is numerically unstable for Nd > 20 and generally 
     % slow for Nd > 10. Nd must be even.
-    Nd = 12;             % number of vortex rings 
-    dS  = 1/Nd;          % (even spacing between vortex rings) / Cduct_oR
+    dS  = 1/Nd;          % (even spacing between vortex rings) / CdoRp
     hdS = 0.5*dS;        % half of dS
 
     % -------------------------------------------------------------------------
@@ -65,69 +65,69 @@ function [XdRING,GdRING,UADIF] = Duct_Influence(Rduct_oR,Cduct_oR,Xduct_oR,RC)
     % a section of length dS located at position XdRING of a NACA a=0.8 
     % mean line (L.E.=0.0, T.E.=1.0) that has unit circulation 1 [m^2/s].
     %
-    XdRING  = zeros(1,Nd);
-    GdRING  = zeros(1,Nd);
+    XdRING  = zeros(Nd,1);
+    GdRING  = zeros(Nd,1);
 
     % Note that since Gamma_d*GdRING(n) is the circulation of ring (n), then
     %    the circulation distribution of the rings, GdRING, is actually unitless!
     %    If Gamma_d is scaled or normalized, then GdRING remains unitless and
     %    always gives the correct circulation distribution.
-    for n=1:Nd
-        XdRING(n) = (n-1)*dS+hdS;
-
-        x2 = XdRING(n) + hdS;
-        x1 = XdRING(n) - hdS;
+    for index = 1 : Nd
+        % 涡环的坐标
+        XdRING(index) = (index-1)*dS+hdS;
+        % 涡环的两个端点
+        x2 = XdRING(index)+hdS;
+        x1 = XdRING(index)-hdS;
         if x2 <= 0.8
-            GdRING(n) = dS/0.9;
+            GdRING(index) = dS/0.9;
         elseif x1 >= 0.8
-            y1 = 1.0 - (x1 - 0.8)/0.2;
-            y2 = 1.0 - (x2 - 0.8)/0.2;
-            GdRING(n) = dS*0.5*(y1 + y2)/0.9;
+            y1 = 1.0-(x1-0.8)/0.2;
+            y2 = 1.0-(x2-0.8)/0.2;
+            GdRING(index) = dS*0.5*(y1 + y2)/0.9;
         else
-            y2 = 1.0 - (x2 - 0.8)/0.2;
-            front    = 0.8 - x1;
-            back     = 0.5*(1.0 + y2)*(x2 - 0.8);
-            GdRING(n) = (front + back)/0.9;
+            y2 = 1.0-(x2-0.8)/0.2;
+            front = 0.8-x1;
+            back = 0.5*(1.0+y2)*(x2-0.8);
+            GdRING(index) = (front+back)/0.9;
         end
     end
-
-    LED      = -(Nd/2)*dS;                  % X position of "leading edge" vortex ring
-    XdRING = XdRING + LED;                  % X position of vortex rings / Cduct_oR
-    XdRING = XdRING * Cduct_oR  + Xduct_oR; % X position of vortex rings / R
-
-
-    % % plot(XdRING,GdRING,'*')
-
+    
+    % 默认叶片位于涵道轴向中心，因此前缘边在原点上游LED处
+    LED = -(Nd/2)*dS;
+    % 将涵道沿轴向的坐标转化为以叶片为原点的坐标
+    XdRING = XdRING+LED;
+    % 统一使用Rp进行归一化
+    XdRING = XdRING*CdoRp-XdoRp;
+    
     % ------------------------------------------------------------------------- 
     % Calculate duct influence function (UADIF) on the UASTAR
     % axial velocity at propeller lifting line control points
         % Note: No tangential influence
         % Note: Radial influence does not create a force on radial lifting line
-
-    UADIF = zeros(1,Mp);            % axial influence of unit strength
-
+    
+    % 单位环量强度下，涵道中线上轴向坐标XdRING的点对控制点产生的轴向诱导速度
+    UAD = zeros(Mp,Nd);
+    % 单位环量强度下，涵道对控制点产生的总轴向诱导速度
+    UADIF = zeros(Mp,1);
+    
     for m=1:Mp                      % for each control point on lifting line    
         for n=1:Nd                  % cycle thru all vortex rings on duct
-            UAD      = vRing(XdRING(n),Rduct_oR,0,RC(m),GdRING(n));
-
-            UADIF(m) = UADIF(m) + UAD;
+            UAD(m,n) = vRing(XdRING(n),RdoRp,0,rc(m),GdRING(n));
+            UADIF(m) = UADIF(m) + UAD(m,n);
         end
     end
 
     % The discrete vortex ring formulation breaks down near the duct, so 
     % extrapolate UADIF for RC > 0.9*Rduct/R
-    indices = find( RC <= 0.9*Rduct_oR );
-    UADIF   = interp1(RC(indices),UADIF(indices),RC,'linear','extrap');
+    indices = find(rc <= 0.9*RdoRp);
+    UADIF = interp1(rc(indices),UADIF(indices),rc,'linear','extrap');
 
 
     % Since GdRING is non-dimensionalized with respect to Gd, then
     % UADIF represents the axial flow velocity induced per unit Gd, which
     % is the correct influence function.
 
-end  % ========================================= END ductInfluence Function
-% =========================================================================
-
-
+end  
 
 % =========================================================================
 % ===================================================== vRing Function

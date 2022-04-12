@@ -1,664 +1,437 @@
-%This function determines the geometry of the propeller.
-%It output the geometry as a 2D image, 3D image, and Rhino CAD file.
+% This function determines the geometry of the propeller.
+% It outputs the geometry as a 2D image, 3D image, and stl file.
 %
-%Reference: 
-%[1]J.S. Carlton, "Marine Propellers & Propulsion", ch. 3, 1994.
-%[2]Abbott, I. H., and Von Doenhoff, A. E.; Theory of Wing Sections. 
-%Dover, 1959. 
-%
+% 该函数决定螺旋桨的几何结构，其输出形式为2D图片、3D实时渲染或者快速成型文件
+% 
+% Reference: 
+%   [1]J.S. Carlton, "Marine Propellers & Propulsion", ch. 3, 1994.
+%   [2]Abbott, I. H., and Von Doenhoff, A. E.; Theory of Wing Sections. 
+%      Dover, 1959. 
+% 
 % -------------------------------------------------------------------------
-% Input Variables:
+% Input Variables: 
+% 输入变量：
 %
 %   filename            file name prefix for all output files
+%                       文件名，该文件名将用于对所有输出文件的命名
 %   date                time and date to print on reports
+%                       输出日期
 %   Geometry_flag       flag for whether to make 2D/3D geometry plot
-%   csv_flag            flag for whetehr to make points output file
-%   Meanline            flag for choice of meanline  form
-%   Thickness           flag for choice of thickness form
+%                       决定是否生成2/3D演示模型
+%   Coordinate_flag     flag for whether to make points output file
+%                       决定是否输出点坐标文档
+%   Meanline_flag       flag for choice of meanline  form
+%                       决定凸缘线类型是否沿径向同一
+%   Thickness_flag      flag for choice of thickness form
+%                       决定厚度类型是否沿径向同一
+%   Meanline_x          types of meanline along rx
+%                       沿径向分布的凸缘线类型
+%   Thickness_x         types of thickness along rx
+%                       沿径向分布的厚度类型
+%   rx                  input radii / propeller radius
+%                       径向坐标
+%   f0oc0               input camber / chord at each radius
+%   t0oc0               input thickness / chord at each radius
+%   
+%   rc                  control point radii / propeller radius
+%                       控制点坐标
+%   CL                  section lift coefficients
+%   BetaC               Beta  at the control points
+%   BetaIC              BetaI at the control points
+%   alphaI              ideal angle of attack
 %
-%   Xr          [ ],    input radii / propeller radius
-%   f0oc0       [ ],    input camber    / chord at each radius
-%   t0oc0       [ ],    input thickness / chord at each radius
-%   skew0       [deg],  input skew              at each radius
-%   rake0       [ ],    input rake / diameter   at each radius
+%   Dp                  propeller diameter
+%   Z                   number of blades
+%   N                   propeller speed
+%   Dhub                hub diameter
+%   Rhub                hub radius
 %
-%   RC          [ ],    control point radii / propeller radius
-%   CL          [ ],    section lift coefficients
-%   BetaC       [deg],  Beta  at the control points
-%   BetaIC      [deg],  BetaI at the control points
-%   alphaI      [deg],  ideal angle of attack
-%
-%   Dp           [m],    propeller diameter
-%   Z           [ ],    number of blades
-%   N           [RPM],  propeller speed
-%   Dhub        [m],    hub diameter
-%   Rhub        [m],    hub radius
-%
-%   CpoDp         [ ],    chord / diameter at each control point radius
-%   Rp           [m],    propeller radius
-%   Mp          [ ],    number of radial 2D cross-sections
-%   Np          [ ],    number of points in each 2D section
-%   Js          [ ],    advance coefficient based on ship speed
+%   CpoDp               chord / diameter at each control point radius
+%   Rp                  propeller radius
+%   Mp                  number of radial 2D cross-sections
+%   Np                  number of points in each 2D section
+%   Js                  advance coefficient based on ship speed
 %
 % Output Variables:
 %
-% The function has graphical and file outputs, in addition to the geometry 
-% data structure.
+%   The function has graphical and file outputs, in addition to the 
+%   geometry data structure.
 %
-%该函数用于生成叶片模型、几何结果文档以及csv点坐标文档
 % -------------------------------------------------------------------------
 
-function [geometry] = Geometry(pt,RG)
+function [geometry] = Geometry(pt,rg)
     global Fig_Main PlotsValues;
-    %nargin表示当前执行函数的输入参数个数
     if nargin == 1
-        %nargin = 1时即函数只接受了pt一个参数，没有RG
-        %RG是用户自行设定的一套径向位置
+        % 函数只有pt一个输入参数
         RadiiGiven_flag = 0;
     else 
         RadiiGiven_flag = 1; 
     end
-    Date_string = pt.date;
+    %% 
+    input = pt.input;
+    design = pt.design;
+    
     filename = pt.filename;
-    Z = pt.input.Z;
-    N = pt.input.N;
-    Dp = pt.input.Dp;
-    Rp = pt.input.Dp/2;
-    Vs = pt.input.Vs;
-    Dhub = pt.input.Dhub;
-    Rhub = pt.input.Dhub/2;
-    Rhub_oR = Rhub/Rp;
-    Mp = pt.input.Mp;
-    Np = pt.input.Np;
-    Meanline = pt.input.Meanline;
-    Thickness = pt.input.Thickness;
-    Hub_flag = pt.input.Hub_flag;  
-    Duct_flag = pt.input.Duct_flag;  
-    Chord_flag = pt.input.Chord_flag;  
-    Geometry_flag = pt.input.Geometry_flag;
-    txt_flag = pt.input.txt_flag;
-    csv_flag = pt.input.csv_flag;
-    stl_flag = pt.input.stl_flag;
-    if isfield(pt.input,'Js')
-        Js = pt.input.Js;   
-    elseif isfield(pt.input,'L' )
-        Js = pi/pt.input.L;
-    end
-    %【删除请求】QuarterChord_flag不存在
-    % 0 == lifting line at mid-chord, 1 == lifting line at quarter-chord (i.e. skew offset == 0.25*C/r)
-    if isfield(pt.input,'QuarterChord_flag')
-        QuarterChord_flag = pt.input.QuarterChord_flag;
-    else
-        QuarterChord_flag = 0;
-    end
-    %【删除请求】LSGeoCorr不存在
-    % Lifting Surface Geometry Corrections
-    if isfield(pt.input,'LSGeoCorr')
-        LSGeoCorr = pt.input.LSGeoCorr;  
-    else
-        LSGeoCorr = 'none';
-    end
-    %
-    if isfield(pt.input,'Xr')
-        Xr = pt.input.Xr; 
-        X1 = ones(size(Xr));
-        X0 = zeros(size(Xr));
-        if isfield(pt.input,'skew0')
-            skew0 = pt.input.skew0;
-        else
-            skew0 = X0;
-        end % [deg]
-        if isfield(pt.input,'rake0')
-            rake0 = pt.input.rake0;
-        else
-            rake0 = X0;
-        end
-        if isfield(pt.input,'XCpoDp') 
-            XCpoDp = pt.input.XCpoDp;  
-            if isfield(pt.input,'Xt0oDp')
-                Xt0oDp = pt.input.Xt0oDp;          
-            elseif isfield(pt.input,'t0oc0')
-                Xt0oDp = pt.input.t0oc0 .* XCpoDp; 
-            else
-                Xt0oDp = interp1(pt.design.RC,pt.design.t0oDp,Xr,'spline','extrap');
-            end 
-        else
-            XXR = [0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 0.95 1.0];
-            XXCoD = [0.1600 0.1818 0.2024 0.2196 0.2305 ...
-                     0.2311 0.2173 0.1806 0.1387 0.0100];
-            Xt0oc0 = [0.2056 0.1551 0.1181 0.0902 0.0694 ...
-                      0.0541 0.0419 0.0332 0.0324 0.0100];
-            XCpoDp = interp1(XXR,XXCoD ,Xr,'pchip','extrap');
-            t0oc0 = interp1(XXR,Xt0oc0,Xr,'pchip','extrap');
-            if  isfield(pt.input,'Xt0oDp')
-                Xt0oDp = pt.input.Xt0oDp;
-            else
-                Xt0oDp = t0oc0 .* XCpoDp;   
-            end
-        end 
-    else
-        Xr = RC;
-        skew0 = 0*RC;
-        rake0 = 0*RC;
-        Xt0oDp = pt.design.t0oDp;
-    end
-    %
+    
+    % 从pt.input中导出数据
+    Z = input.Z;
+    Dp = input.Dp;
+    Hub_flag = input.Hub_flag;
+    Dh = input.Dh;
+    Duct_flag = input.Duct_flag;
+    Nx = input.Nx;
+    rx = input.rx;
+    Meanline_x = input.Meanline_x;
+    Thickness_x = input.Thickness_x;
+    Geometry_flag = input.Geometry_flag;
+    Coordinate_flag = input.Coordinate_flag;
+    Printing_flag = input.Printing_flag;
+    Mp = input.Mp;
+    Np = input.Np;
+    
+    % 从pt.design中导出数据
+    CpoDp_c = design.CpoDp_c;  
+    T0oDp_c = design.T0oDp_c;
     if Duct_flag == 1 
-        Rduct_oR = pt.design.Rduct_oR;
-        Cduct_oR = pt.design.Cduct_oR;
-        Xduct_oR = pt.design.Xduct_oR;
-        Gd = pt.design.Gd;
-        VARING = pt.design.VARING;
-        %确认输入中是否设置了涵道的凸缘线和叶型
-        %实际上输入中并不存在这一选项
-        if isfield(pt.input,'Meanline_d')
-            Meanline_d = pt.input.Meanline_d;
-        else
-            Meanline_d = 'NACA a=0.8 (modified)';
-        end
-        if isfield(pt.input,'Thickness_d')
-            Thickness_d = pt.input.Thickness_d;
-        else
-            Thickness_d = 'NACA 65A010';
-        end
-        if isfield(pt.input,'t0oc_duct')
-            t0oc_duct = pt.input.t0oc_duct;
-        else
-            t0oc_duct = 0.12;
-        end
+        RdoRp = design.RdoRp;
+        CdoRp = design.CdoRp;
+        XdoRp = design.XdoRp;
+        Gd = design.Gd;
+        VARING = design.VARING;
+        % 涵道切面凸缘线类型
+        Meanline_d = 'NACA a=0.8 (modified)';
+        % 涵道切面厚度类型
+        Thickness_d = 'NACA 65A010';
     else
-        Rduct_oR = 1;
-        Cduct_oR = 1;
-        Xduct_oR = 0;
+        RdoRp = 1;
+        CdoRp = 1;
+        XdoRp = 0;
         Gd = 0;
         VARING = 0;
-    end   
-    RC = pt.design.RC;
-    RV = pt.design.RV;
-    G = pt.design.G';
-    CL = pt.design.CL;
-    TANBIC = pt.design.TANBIC;
-    BetaIC = atand(pt.design.TANBIC);
-    BetaC = atand(pt.design.TANBC );
-    %将RC对应的βi在RV处进行插值
-    TANBIV = pchip(RC,pt.design.TANBIC,RV);
-    % Model Diameter
-    % This is the diameter of the output SolidWorks/Rhino geometry
-    if isfield(pt.input,'Dm')
-        Dm = pt.input.Dm;
-    else
-        Dm = Dp;
     end
-    Rm = Dm/2;
-    %% 在选定的径向位置对输入的几何体进行插值
+    rc = design.rc;
+    CL_c = design.CL_c;
+    tanBetaI_c = design.tanBetaI_c;
+    BetaI_c = atand(tanBetaI_c);
+    Js = design.Js;
+    
+    % 引申数据
+    RhoRp = Dh/Dp;
+    
+    % 其他参数
+    % 升力线位于中心则为0，位于1/4弦长处则为1
+    QuarterChord_flag = 0;
+    % 升力面几何修正
+    LSGeoCorr = 'none';
+    % 左手螺旋桨时为1
+    LeftHand_flag = 0;
+    
+    %%
+    % 确定径向坐标
     if RadiiGiven_flag == 0
-        %没有额外提供用于插值的径向位置
-        RG = Rhub_oR + (1-Rhub_oR)*(sin((0:Mp)*pi/(2*Mp)));
+        % 没有额外提供用于插值的坐标
+        rg = RhoRp+(1-RhoRp)*(sin((0:Mp)*pi/(2*Mp)));
+        % 将插值坐标调整为列向量
+        rg = rg';
     else
-        %径向叶片分区数量 = 径向分区线数量-1 = 纬线数量-1
-        Mp = length(RG)-1;
-        if (RG(1)<Rhub_oR)||(RG(end)>1)
+        Mp = length(rg)-1;
+        if (rg(1)<RhoRp)||(rg(end)>1)
             message = sprintf('错误：径向位置输入值超出范围');
             uialert(Fig_Main,message,'输入错误','icon','error');
             return 
         end
     end
-    CL = pchip(RC,CL,RG); 
-    BetaIG = pchip(RC,BetaIC,RG); 
-    TANBIG = pchip(RC,TANBIC,RG);
-    %对弦长和叶片厚度进行插值
-    if Chord_flag == 0  
-        %没有进行弦长优化，弦长插值方法与EppsOptimizers.m中相同
-        if (abs(Xr(end)-1)<1e-4) && (XCpoDp(end)<=0.01)  %Xr(end)=1且XCpoDp(end)=0
-            CpoDp = InterpolateChord(Xr,XCpoDp,RG);   % section chord / propeller diameter at ctrl pts
-        else
-            CpoDp = pchip(Xr, XCpoDp,RG);   % section chord / propeller diameter at ctrl pts
-        end
-        t0oDp = pchip(Xr,Xt0oDp,RG);   % section thickness / propeller dia. at ctrl pts
+    
+    % 对参数进行插值
+    CL_g = pchip(rc,CL_c,rg); 
+    BetaI_g = pchip(rc,BetaI_c,rg); 
+    tanBetaI_g = pchip(rc,tanBetaI_c,rg);
+    if (Duct_flag == 0)||(RdoRp>1.001)
+        % 叶梢弦长为0
+        CpoDp_g = InterpolateChord(rc,CpoDp_c,rg);   
     else
-        %进行了弦长优化，因此此时弦长的插值方法应注意保护
-        %自由螺旋桨叶尖的弦长为0以及涵道螺旋桨叶尖的弦长为有限值
-        if (Duct_flag == 0)||(Rduct_oR>1.001)   
-            CpoDp = InterpolateChord(RC,pt.design.CpoDp,RG);  % yields zero   chord at the tip       
-        else                                                
-            CpoDp = pchip(RC,pt.design.CpoDp,RG);  % yields finite chord at the tip   
-        end
-        t0oDp = pchip(RC,pt.design.t0oDp,RG);
+        % 叶梢弦长为有限值
+        CpoDp_g = pchip(rc,CpoDp_c,rg);
     end
-    % Thickness, rake, chord, and radius scaled for the model diameter
-    r = RG*Rm;                          % radius of the RG sections [m]
-    C = CpoDp*Dm;                          % section chord at the RG sections [m]
-    t0 = t0oDp*Dm;
-    skew = pchip(Xr,skew0,RG);       % [deg], angular translation along mid-chord helix
-    rake = pchip(Xr,rake0,RG)*Dm;     % [m],   translation along propeller axis (3D X-axis)
-    %计算伸张面积比 Compute Expanded Area Ratio
-    EAR = (2*Z/pi)*trapz(linspace(Rhub_oR,1,100),interp1(RG,CpoDp,linspace(Rhub_oR,1,100),'spline','extrap'));  
-    %计算BTF Compute Blade Thickness Fraction (BTF = t0oD at the prop centerline)
-    BTF = interp1(RG,t0oDp,0,'linear','extrap');
-    % ---------------------------------------- Lay out the 2D coordinate system
-    % x0   [ ], x/C distance along mid-chord line to interpolate geometry data.
-    % x1   [m], x   distance along mid-chord line to interpolate geometry data.
-    %               By definition, x1 == C/2 - C*x0.
+    T0oDp_g = pchip(rc,T0oDp_c,rg);
 
-    %               At the Leading  Edge: x1 =  C/2, x0 = 0
-    %               At the Trailing Edge: x1 = -C/2, x0 = 1
-    %
-    x0 = zeros(   1,Np);
-    x1 = zeros(Mp+1,Np);
+    % 将归一化的几何参数复原
+    R_g = rg*Dp/2;
+    C_g = CpoDp_g*Dp;
+    T0_g = T0oDp_g*Dp;
+    
+    % 计算伸张面积比
+    EAR = (2*Z/pi)*trapz(linspace(RhoRp,1,100),...
+          interp1(rg,CpoDp_g,linspace(RhoRp,1,100),'spline','extrap'));  
+    % 计算叶芯厚径比
+    BTF = interp1(rg,T0oDp_g,0,'linear','extrap');
+    
+    % 设置升力面坐标系
+    % x0    x/C distance along mid-chord line to interpolate geometry data.
+    % xy    xy  distance along mid-chord line to interpolate geometry data.
+    x = zeros(1,Np);
+    C_gx = zeros(Mp+1,Np);
 
-    for j = 1:Np                               % for each point along the chord
-      % % Even spacing along the chord   
-      % x0(j) =                 (j-1)/(Np-1);  % [0 : 1]
-
-        % Cosine spacing along the chord
-        x0(j) = 0.5*(1-cos(pi*(j-1)/(Np-1)));  % [0 : 1]
+    for j = 1 : Np
+        % 坐标点沿弦长方向为余弦分布，方向由前缘线向后缘线
+        x(j) = 0.5*(1-cos(pi*(j-1)/(Np-1)));
     end
-    for i = 1:Mp+1                     % for each radial section along the span
+    for i = 1 : Mp+1
         if QuarterChord_flag == 1
-            x1(i,:) = C(i)/4 - C(i)*x0;    % lifting line at quarter-chord
-        else        
-            x1(i,:) = C(i)/2 - C(i)*x0;    % lifting line at mid-chord
+            C_gx(i,:) = C_g(i)/4-C_g(i)*x;
+        else
+            % 前缘线处为C_g(i)/2，后缘线处为-C_g(i)/2
+            C_gx(i,:) = C_g(i)/2-C_g(i)*x;
         end
     end
-    % ---------------------- Find normalized 2D foil geometry (at x0 positions)
-    %   f0octilde = zeros(Mp+1,1);  % can either be scalars or given versus RG(1:Mp+1)
-    %    CLItilde = zeros(Mp+1,1);  % can either be scalars or given versus RG(1:Mp+1)
-    % alphaItilde = zeros(Mp+1,1);  % can either be scalars or given versus RG(1:Mp+1)
-    if iscell(Meanline)  % Assume Meanline is given versus Xr
+    
+    % 获取切面凸缘线和厚度相关数据
+    F0oCpdtilde_x = zeros(Nx,1);
+    CLItilde_x = zeros(Nx,1);
+    AlphaItilde_x = zeros(Nx,1);
+    FoF0_x = zeros(Nx,Np);
+    dFoF0dx_x = zeros(Nx,Np);
+    ToT0_x = zeros(Nx,Np);
+    FoF0_g = zeros(Mp+1,Np);
+    dFoF0dx_g = zeros(Mp+1,Np);
+    ToT0_g = zeros(Mp+1,Np);
 
-          f0octilde = zeros(length(Xr),1);  % can either be scalars or given versus RG(1:Mp+1)
-           CLItilde = zeros(length(Xr),1);  % can either be scalars or given versus RG(1:Mp+1)
-        alphaItilde = zeros(length(Xr),1);  % can either be scalars or given versus RG(1:Mp+1)
-        fof0_temp        = zeros(length(Xr),Np); % eventually given versus [RG(1:Mp+1),x/C(1:Np)]
-        dfof0dxoc_temp   = zeros(length(Xr),Np); % eventually given versus [RG(1:Mp+1),x/C(1:Np)]
-        tot0_temp        = zeros(length(Xr),Np); % eventually given versus [RG(1:Mp+1),x/C(1:Np)]    
-
-        fof0        = zeros(Mp+1,Np); % eventually given versus [RG(1:Mp+1),x/C(1:Np)]
-        dfof0dxoc   = zeros(Mp+1,Np); % eventually given versus [RG(1:Mp+1),x/C(1:Np)]
-        tot0        = zeros(Mp+1,Np); % eventually given versus [RG(1:Mp+1),x/C(1:Np)]    
-
-
-        for i = 1:length(Xr)
-            [f0octilde(i), CLItilde(i), alphaItilde(i), fof0_temp(i,:), dfof0dxoc_temp(i,:), tot0_temp(i,:)] = GeometryFoil2D(Meanline{i},Thickness{i},x0);
-        end
-
-          f0octilde = pchip(Xr,   f0octilde, RG);
-           CLItilde = pchip(Xr,    CLItilde, RG);
-        alphaItilde = pchip(Xr, alphaItilde, RG);
-
-
-        for j = 1:Np
-                 fof0(:,j) = pchip(Xr,      fof0_temp(:,j), RG');
-            dfof0dxoc(:,j) = pchip(Xr, dfof0dxoc_temp(:,j), RG');
-                 tot0(:,j) = pchip(Xr,      tot0_temp(:,j), RG');
-        end
-
-    else
-        [f0octilde, CLItilde, alphaItilde, fof0_temp, dfof0dxoc_temp, tot0_temp] = GeometryFoil2D(Meanline,Thickness,x0);
-
-        fof0        = zeros(Mp+1,Np); % eventually given versus [RG(1:Mp+1),x/C(1:Np)]
-        dfof0dxoc   = zeros(Mp+1,Np); % eventually given versus [RG(1:Mp+1),x/C(1:Np)]
-        tot0        = zeros(Mp+1,Np); % eventually given versus [RG(1:Mp+1),x/C(1:Np)]
-
-        for i = 1:Mp+1
-            %(i,:)矩阵的第i行
-                 fof0(i,:) =      fof0_temp; 
-            dfof0dxoc(i,:) = dfof0dxoc_temp;
-                 tot0(i,:) =      tot0_temp;
-        end
-
+    % 沿径向方向写入几何信息
+    for i = 1 : Nx
+        [F0oCpdtilde_x(i),CLItilde_x(i),AlphaItilde_x(i),FoF0_x(i,:),...
+         dFoF0dx_x(i,:),ToT0_x(i,:)] = GeometryFoil2D(Meanline_x{i},Thickness_x{i},x);
     end
-    % -------------------------------------------------------------------------
 
-
-    % ----- Scale camber ratio and ideal angle of attack by 2D lift coefficient
-    alphaI = alphaItilde .* CL ./ CLItilde;        % [deg], ideal angle of attack
-      f0oc =   f0octilde .* CL ./ CLItilde;        % f0/C, scaled for CL at RG    
-
-
-    % -------------------------------------------------------------------------
-    % Modify camber ratio and ideal angle of attack for 3D lifting surface effects
-    if     strcmp(LSGeoCorr,'none') 
-        % no geometry corrections
-
+    % 将径向坐标修改为rg
+    F0oCptilde_g = pchip(rx,F0oCpdtilde_x,rg);
+    CLItilde_g = pchip(rx,CLItilde_x,rg);
+    AlphaItilde_g = pchip(rx,AlphaItilde_x,rg);
+    for j = 1 : Np
+        FoF0_g(:,j) = pchip(rx,FoF0_x(:,j),rg);
+        dFoF0dx_g(:,j) = pchip(rx,dFoF0dx_x(:,j),rg);
+        ToT0_g(:,j) = pchip(rx,ToT0_x(:,j),rg);
+    end
+    
+    % 根据tilde值确定实际值
+    AlphaI_g = AlphaItilde_g.*CL_g./CLItilde_g;
+    F0oCp_g = F0oCptilde_g.*CL_g./CLItilde_g;
+    
+    % 基于三维升力面相关工程经验对攻角和拱度进行修正
+    if strcmp(LSGeoCorr,'none') 
+        % 没有选择修正方法，不进行修正
     elseif strcmp(LSGeoCorr,'Morgan1968')
-        % Kc = 1; Ka = 1; Kt = 0;
-        [Kc,Ka,Kt] = Morgan1968(RG,TANBIG,EAR,Z);
-
-        for m = 1:Mp+1                 % for each radial section along the span
-            f0oc(m)   = Kc(m) * f0oc(m);
-
-            alphaI(m) = (Ka(m) * (pi/180)*alphaI(m) + Kt(m) * BTF)*(180/pi); % [deg], ideal angle of attack
+        % 基于Morgan的方法进行修正
+        [Kc,Ka,Kt] = Morgan1968(rg,tanBetaI_g,EAR,Z);
+        for m = 1 : Mp+1
+            F0oCp_g(m) = Kc(m) * F0oCp_g(m);
+            AlphaI_g(m) = (Ka(m) * (pi/180)*AlphaI_g(m)+Kt(m)*BTF)*(180/pi);
         end        
-
+        
     elseif strcmp(LSGeoCorr,'EckhardtMorgan1955')
-        % K1K2 = 1;
-
-        [K1K2] = EckhardtMorgan1955(EAR,RG,TANBIG);
-
-        for m = 1:Mp+1                 % for each radial section along the span
-            f0oc(m)   = K1K2(m) * f0oc(m);
-
-            alphaI(m) = K1K2(m) * alphaI(m); % [deg], ideal angle of attack
+        % 基于Eckhard的方法进行修正
+        [K1K2] = EckhardtMorgan1955(EAR,rg,tanBetaI_g);
+        for m = 1 : Mp+1
+            F0oCp_g(m) = K1K2(m) * F0oCp_g(m);
+            AlphaI_g(m) = K1K2(m) * AlphaI_g(m);
         end     
     end
-    % -------------------------------------------------------------------------
-
-
-    % ------------------ Find meanline and thickness profiles (at x1 positions)
-    % f      = camber               at x1 positions
-    % dfdx   = slope of camber line at x1 positions
-    % t      = thickness            at x1 positions
-    t    = zeros(Mp+1,Np);
-    f    = zeros(Mp+1,Np);
-    dfdx = zeros(Mp+1,Np);
-
-    for i = 1:Mp+1                 % for each radial section along the span
-           f(i,:) =  fof0(i,:)    *f0oc(i)*C(i);
-        dfdx(i,:) = dfof0dxoc(i,:)*f0oc(i);
-
-           t(i,:) =  tot0(i,:) * t0(i);
+    
+    % 求解每个坐标点处实际的厚度、拱度和拱度的导数值
+    T_gx = zeros(Mp+1,Np);
+    F_gx = zeros(Mp+1,Np);
+    dFdx_gx = zeros(Mp+1,Np);
+    for i = 1 : Mp+1
+        % 注意F0oCd_g(i)和C_g(i)均为具体数值，不存在矩阵相乘的问题
+        F_gx(i,:) = FoF0_g(i,:)*F0oCp_g(i)*C_g(i);
+        dFdx_gx(i,:) = dFoF0dx_g(i,:)*F0oCp_g(i);
+        T_gx(i,:) = ToT0_g(i,:)*T0_g(i);
     end      
-    % -------------------------------------------------------------------------
-
-
-    % -------------------------------------------------------------------------
-    % ------------------------------------- Find 2D unroatated section profiles
-    % x2D  [m], x   position in 2D space on upper (x2D_u) and lower (x2D_l) foil surfaces
-    % y2D  [m], y   position in 2D space on upper (x2D_u) and lower (x2D_l) foil surfaces
-    x2D_u = zeros(Mp+1,Np);     x2D_l = zeros(Mp+1,Np);
-    y2D_u = zeros(Mp+1,Np);     y2D_l = zeros(Mp+1,Np);
-
-    for i = 1:Mp+1                           % for each section along the span
-        for j = 1:Np                         % for each point   along the chord
-            x2D_u(i,j) = x1(i,j) + (t(i,j)/2)*sin(atan(dfdx(i,j))); % 2D upper surface x
-            x2D_l(i,j) = x1(i,j) - (t(i,j)/2)*sin(atan(dfdx(i,j))); % 2D lower surface x
-            y2D_u(i,j) =  f(i,j) + (t(i,j)/2)*cos(atan(dfdx(i,j))); % 2D upper surface y
-            y2D_l(i,j) =  f(i,j) - (t(i,j)/2)*cos(atan(dfdx(i,j))); % 2D lower surface y
+    
+    % 螺距角为水动力螺旋角和攻角之和
+    Phi_g = BetaI_g+AlphaI_g;
+    % 螺距/叶片直径
+    PoDp = tand(Phi_g).*pi.*rg;
+    % 叶片之间的角度
+    theta_Z  = 0:360/Z:360;
+    T0oCp_g = T0_g./C_g;
+    
+    % 叶切面模型上表面的横坐标
+    x2D_u = zeros(Mp+1,Np);
+    % 叶切面模型下表面的横坐标
+    x2D_l = zeros(Mp+1,Np);
+    % 叶切面模型上表面的纵坐标
+    y2D_u = zeros(Mp+1,Np);
+    % 叶切面模型下表面的纵坐标
+    y2D_l = zeros(Mp+1,Np);
+    % 计算2D叶切面模型上的点坐标
+    for i = 1 : Mp+1
+        % 径向坐标方向：由叶根向叶梢
+        for j = 1:Np
+            % 弦向坐标方向：由前缘线向后缘线
+            x2D_u(i,j) = C_gx(i,j)+(T_gx(i,j)/2)*sin(atan(dFdx_gx(i,j)));
+            x2D_l(i,j) = C_gx(i,j)-(T_gx(i,j)/2)*sin(atan(dFdx_gx(i,j)));
+            y2D_u(i,j) = F_gx(i,j)+(T_gx(i,j)/2)*cos(atan(dFdx_gx(i,j)));
+            y2D_l(i,j) = F_gx(i,j)-(T_gx(i,j)/2)*cos(atan(dFdx_gx(i,j)));
         end
     end
-
-
-
-    % % -------------------------------------- Compute leading edge radius points
-    % phiLEC = atan(dfdxLE);
-    % NLE    = 3; % must be odd to capture leading edge point
-    % phiLEs = 3*pi/8;
-    % phiLE  = phiLEs:(pi-2*phiLEs)/(NLE-1):pi-phiLEs; 
-    % xLEC  = x1(:,1)' - rLE.*cos(phiLEC);
-    % yLEC  =            rLE.*sin(phiLEC);
-    % 
-    % xLE = zeros(Mp+1,NLE);
-    % yLE = zeros(Mp+1,NLE);
-    % 
-    % for i = 1:Mp+1                           % for each section along the span
-    %     xLE(i,:) = xLEC(i) + rLE(i)*sin(phiLE+phiLEC(i));
-    %     yLE(i,:) = yLEC(i) - rLE(i)*cos(phiLE+phiLEC(i));
-    % end
-
-
-    % ----------------------------------------- Put all the numbers in one list
-    % % Nose -> suctioin side -> tail -> pressure side -> nose
-    % x2D(:,   1:Np   ) = x2D_u(:,1:Np);     % The first Np values are the upper surface (suction side),
-    % x2D(:,1+Np:Np+Np) = x2D_l(:,Np:-1:1);  % and the second Np values are the lower surface (pressure side).
-    % y2D(:,   1:Np   ) = y2D_u(:,1:Np);
-    % y2D(:,1+Np:Np+Np) = y2D_l(:,Np:-1:1);
-
-    % % j = 1          == tail
-    % % j = 1:Np       == suction side
-    % % j = Np         == nose
-    % % j = Np + 1     == nose
-    % % j = Np+ 1:2*Np == pressure side
-    % % j = 2*Np       == tail
-    % % Tail -> suctioin side -> nose, nose -> pressure side -> tail
-    x2D(:,   1:Np   ) = x2D_u(:,Np:-1:1);   % The first Np values are the upper surface (suction side),
-    x2D(:,Np+1:Np+Np) = x2D_l(:,1:Np);      % and the second Np values are the lower surface (pressure side).
-    y2D(:,   1:Np   ) = y2D_u(:,Np:-1:1);
-    y2D(:,Np+1:Np+Np) = y2D_l(:,1:Np);
-
-
-    % % % Arrange points as follows:
-    % % %     Tail -> suctioin side -> leading edge (with radius and nose) -> pressure side -> tail
-    % % % j = 1                               == [1         point ] tail
-    % % % j = 1              : Np-1           == [Np-1      points] suction side (tail to point aft of leading edge radius)
-    % % % j = Np-1+1         : Np-1+(NLE-1)/2 == [(NLE-1)/2 points] suction side along leading edge radius
-    % % % j = Np+(NLE-1)/2                    == [1         point ] nose
-    % % % j = Np+(NLE-1)/2+1 :    Np-1+NLE    == [(NLE-1)/2 points] pressure side along leading edge radius
-    % % % j = Np-1+NLE+1     : 2*(Np-1)+NLE   == [Np-1      points] pressure side (point aft of leading edge radius to tail)
-    % % % j = 2*(Np-1)+NLE                    == [1         point ] tail
-    % % %
-    % % % j =            1   : Np+(NLE-1)/2   == suction  side (tail to nose)
-    % % % j = Np+(NLE-1)/2   : 2*(Np-1)+NLE   == pressure side (nose to tail)
-    % % 
-    % % x2D(:,1              :    Np-1     ) = x2D_u(:,Np:-1:2); % [Np-1 points] suction  side (tail to point aft of leading edge radius)
-    % % x2D(:,Np-1+1         :    Np-1 +NLE) =   xLE(:,NLE:-1:1);     % [NLE  points] leading edge radius  
-    % % x2D(:,Np-1+NLE+1     : 2*(Np-1)+NLE) = x2D_l(:,2:Np);    % [Np-1 points] pressure side (point aft of leading edge radius to tail)
-    % % 
-    % % y2D(:,1              :    Np-1     ) = y2D_u(:,Np:-1:2); % [Np-1 points] suction  side (tail to point aft of leading edge radius)
-    % % y2D(:,Np-1+1         :    Np-1 +NLE) =   yLE(:,NLE:-1:1);     % [NLE  points] leading edge radius  
-    % % y2D(:,Np-1+NLE+1     : 2*(Np-1)+NLE) = y2D_l(:,2:Np);    % [Np-1 points] pressure side (point aft of leading edge radius to tail)
-
-
-
-    % %--------------------------------------- plot unrotated blade
-    %  Fig2_S = figure('units','normalized','position',[0.31 .06 .4 .3],'name',...
-    %         'Blade Image','numbertitle','off');
-    %     style=['r' 'g' 'b' 'm' 'k'];
-    %     str_prefix = {'r/Rp = '};
-    %     flag=1;
-    %     for i = 1:ceil(Mp/5):Mp     % for five radial sections from root to tip
-    %         plot(x2D(i,:),y2D(i,:),style(flag));
-    %         
-    %         for j = 1:Np
-    %             plot([x2D_l(i,j),x2D_u(i,j)],[y2D_l(i,j),y2D_u(i,j)],style(flag));
-    %         end
-    %         
-    %         str_legend(flag)=strcat(str_prefix,num2str(RC(i)));
-    %         hold on;
-    %         flag = flag+1;
-    %     end
-    %     legend(str_legend,'location','northwest');
-    %     axis equal;     grid on;
-    %     title('2D Blade Image');  xlabel('X (2D) [m]');  ylabel('Y (2D) [m]');
-    % %---------------------------------------
-
-
-
-    % ---------------------------------------------- Find pitch angle and pitch
-    theta    = BetaIG + alphaI;               % Nose-tail pitch angle, [deg]
-    PoD      = tand(theta).*pi.*RG;           % Pitch / propeller diameter, [ ]
-    theta_Z  = 0:360/Z:360;                   % angle between blades [deg]
-
-
-
-    % --------------------------------------- Find 2D roatated section profiles
-    % x2Dr [m], x position in 2D space after rotation for pitch angle
-    % y2Dr [m], y position in 2D space after rotation for pitch angle
-    % x2Dr = zeros(Mp+1,2*(Np-1)+NLE);
-    % y2Dr = zeros(Mp+1,2*(Np-1)+NLE);
+    
+    % 将上下表面的横坐标和纵坐标分别合成至同一数组中，顺序：
+    % 径向(i:1 - Mp+1)：叶根 - 叶梢
+    % 弦向(j:1 - Np)：后缘线 - 上表面（吸力面） - 前缘线 - 下表面（压力面）
+    x2D(:,1:Np) = x2D_u(:,Np:-1:1);
+    x2D(:,Np+1:2*Np) = x2D_l(:,1:Np);
+    y2D(:,1:Np) = y2D_u(:,Np:-1:1);
+    y2D(:,Np+1:2*Np) = y2D_l(:,1:Np);
+    
+    % 计算加入螺距角后的叶切面2D点坐标
     x2Dr = zeros(Mp+1,2*Np);
     y2Dr = zeros(Mp+1,2*Np);
-    % for i = 1:Mp        % for each section along the span
-    for i = 1:Mp+1        % for each section along the span
-        x2Dr(i,:) = x2D(i,:)*cosd(theta(i)) - y2D(i,:)*sind(theta(i)); % rotated 2D upper and lower surface x
-        y2Dr(i,:) = x2D(i,:)*sind(theta(i)) + y2D(i,:)*cosd(theta(i)); % rotated 2D upper and lower surface y
+    for i = 1 : Mp+1
+        % 沿径向位置螺距角变化
+        x2Dr(i,:) = x2D(i,:)*cosd(Phi_g(i))-y2D(i,:)*sind(Phi_g(i));
+        y2Dr(i,:) = x2D(i,:)*sind(Phi_g(i))+y2D(i,:)*cosd(Phi_g(i));
     end
 
-    % --------------------------- Invoke skew and rake, and find 3D coordinates
+    % 计算三维点坐标
     % X3D [m], X position in 3D space (corresponds to y position in 2D space)
     % Y2D [m], Y position in 3D space
     % Z3D [m], Z position in 3D space
-    % X3D = zeros(Mp+1,2*(Np-1)+NLE,Z);
-    % Y3D = zeros(Mp+1,2*(Np-1)+NLE,Z);
-    % Z3D = zeros(Mp+1,2*(Np-1)+NLE,Z);
-    X3D = zeros(Mp+1,2*Np,Z);
-    Y3D = zeros(Mp+1,2*Np,Z);
-    Z3D = zeros(Mp+1,2*Np,Z);
-    % for i = 1:Mp        % for each section along the span
-    for i = 1:Mp+1        % for each section along the span
-    %     for j = 1:2*(Np-1)+NLE    % for each point   along the upper and lower surfaces
-        for j = 1:2*Np    % for each point   along the upper and lower surfaces
-            for k = 1:Z   % for each blade
-                X3D(i,j,k) = - rake(i) - r(i)*(pi*skew(i)/180)*tand(theta(i)) + y2Dr(i,j);
-                Y3D(i,j,k) = r(i)*sind(skew(i) - (180/pi)*x2Dr(i,j)/r(i) - theta_Z(k));
-                Z3D(i,j,k) = r(i)*cosd(skew(i) - (180/pi)*x2Dr(i,j)/r(i) - theta_Z(k));
+    x3D = zeros(Mp+1,2*Np,Z);
+    y3D = zeros(Mp+1,2*Np,Z);
+    z3D = zeros(Mp+1,2*Np,Z);
+    for i = 1:Mp+1
+        for j = 1:2*Np
+            for k = 1:Z
+                x3D(i,j,k) = y2Dr(i,j);
+                y3D(i,j,k) = R_g(i)*sind(-(180/pi)*x2Dr(i,j)/R_g(i)-theta_Z(k));
+                z3D(i,j,k) = R_g(i)*cosd(-(180/pi)*x2Dr(i,j)/R_g(i)-theta_Z(k));
             end
         end
     end
-    %%
-    % % ---- Find axial length of blade
-    % max(max(max(X3D))) - min(min(min(X3D)))
-
-
-
-    % --------------------- If left-hand screw, then mirror the Y3D coordinates
-    LeftHand_flag = 0;  % 1 == left-handed propeller, 0 == right-handed propeller
-
+    
+    % 左手螺旋桨为右手螺旋将关于xoz平面对称
     if LeftHand_flag == 1
-        Y3D = -Y3D;
+        y3D = -y3D;
     end
-    % -------------------------------------------------------------------------
-
-    % save geometry RC x2Dr y2Dr X3D Y3D Z3D
-
-    %
-    % =========================================================================
-    % ============================ Pack up geometry data at the geometry points
-    t0oc    = t0 ./ C;                   % [ ],   t0/C
-
-    geometry.Meanline  = Meanline;
-    geometry.Thickness = Thickness;
-
-    geometry.Z         = Z;
-    geometry.Dp         = Dp;                          % [m]
-    geometry.Dhub      = Dhub;                       % [m]
-
-    geometry.EAR       = EAR;
-    geometry.BTF       = BTF;
-
-    geometry.RG        = RG;                         % r/Rp
-    geometry.CpoDp       = CpoDp;  
-    geometry.t0oD      = t0oDp; 
-    geometry.t0oc      = t0oc;           
-    geometry.f0oc      = f0oc;      
-    geometry.BetaI     = BetaIG;   
-    geometry.alpha     = alphaI; 
-    geometry.theta     = theta;
-    geometry.PoD       = PoD; 
-    geometry.skew      = skew;                       % [deg]
-    geometry.rake      = rake/Dp;                     % 
-    %% 绘制叶片模型(2D/3D)
-    set(PlotsValues(13),'valuechangedfcn',{@Geometry2Dfcn,RG,x2Dr,y2Dr});
-    set(PlotsValues(14),'valuechangedfcn',@Geometry3Dfcn);
-%     Make_3D_Blade_Image(X3D,Y3D,Z3D,Duct_flag,Rduct_oR,Cduct_oR,Xduct_oR, Hub_flag,Rhub_oR,  Js,BetaIG,theta,TANBIV,RV,Rm, Geometry_flag,Plots,PlotPanels);
+    
+    %% 生成2/3D演示模型
+    if Geometry_flag
+        set(PlotsValues(11),'valuechangedfcn',{@Geometry2Dfcn,...
+                                               Mp,Np,rg,x2Dr,y2Dr});
+        set(PlotsValues(12),'valuechangedfcn',{@Geometry3Dfcn,Z,...
+                                               x3D,y3D,z3D});
+    end    
+    
+%     Make_3D_Blade_Image(x3D,y3D,z3D,Duct_flag,RdoRp,CdoRp,XdoRp,Hub_flag,...
+%                         RhoRp,Js,BetaI_g,theta,TANBIV,RV,Dp/2,Geometry_flag,Plots,PlotPanels);
 %     if Duct_flag == 1
-%         [xd,rd,Xd,Yd,Zd] = Duct_Plot_120329(RC,TANBIC,G,VARING,RV,Z,Hub_flag,Rhub_oR,Duct_flag,Rduct_oR,Cduct_oR,Xduct_oR,Gd,Meanline_d,Thickness_d,x0,t0oc_duct,Rp,Mp,Np);
+%         [xd,rd,Xd,Yd,Zd] = Duct_Plot_120329(rc,TANBIC,G,VARING,RV,Z,Hub_flag,Rhub_oR,Duct_flag,Rduct_oR,Cduct_oR,Xduct_oR,Gd,Meanline_d,Thickness_d,x0,t0oc_duct,Rp,Mp,Np);
 %         surf(Xd,Yd,Zd);
 %     end
-    %% 导出几何文档
-    if txt_flag
-        MakeGeometryTxt(Mp,filename,Date_string,Dp,Z,N,Dhub,Meanline,Thickness,LSGeoCorr,...
-                        RG,CpoDp,t0oc,f0oc,PoD,theta,skew,rake);
+%     
+%     if Coordinate_flag
+%         ExportPointCoordinates(filename,Np,Mp,x3D,y3D,z3D);
+%     end
+    
+    %% 保存数据
+    % 将几何结构数据保存至pt.geometry中
+    geometry.part1 = '设计规格';
+    geometry.Z = Z;                             % 叶片个数
+    geometry.Dp = Dp;                           % 叶片直径
+    geometry.Dh = Dh;                           % 桨毂直径
+    geometry.Duct_flag = Duct_flag;             % 设计中加入涵道
+    geometry.EAR = EAR;                         % 伸张面积比
+    geometry.BTF = BTF;                         % 叶芯厚径比
+    if Duct_flag
+        geometry.RdoRp = RdoRp;                 % 涵道直径
+        geometry.CdoRp = CdoRp;                 % 涵道弦长
+        geometry.XdoRp = XdoRp;                 % 涵道位置
+        geometry.Meanline_d = Meanline_d;       % 涵道凸缘线
+        geometry.Thickness_d = Thickness_d;     % 涵道厚度
+        geometry.Gd = Gd;                       % 涵道环量
+        geometry.VARING = VARING;               % 涵道中线轴向来流速度
     end
-    %% 导出点坐标csv文档
-    if csv_flag
-        ExportPointCoordinates(filename,Np,Mp,X3D,Y3D,Z3D);
-    end
+    
+    geometry.part2 = '叶切面几何信息';
+    geometry.Nx = Nx;                           % 切面数量
+    geometry.rx = rx;                           % 径向位置
+    geometry.Meanline_x = Meanline_x;           % 凸缘线类型
+    geometry.Thickness_x = Thickness_x;         % 厚度类型
+    geometry.rc = rc;                           % 径向位置
+    geometry.CL_c = CL_c;                       % 升力系数
+    geometry.BetaI_c = BetaI_c;                 % 水动力螺旋角
+    geometry.rg = rg;                           % 径向位置
+    geometry.CpoDp_g = CpoDp_g;                 % 叶片弦径比
+    geometry.T0oDp_g = T0oDp_g;                 % 叶片厚径比
+    geometry.T0oCp_g = T0oCp_g;                 % 叶片厚弦比
+    geometry.F0oCp_g = F0oCp_g;                 % 叶片拱弦比
+    geometry.BetaI_g = BetaI_g;                 % 水动力螺旋角
+    geometry.AlphaI_g = AlphaI_g;               % 攻角
+    geometry.Phi_g = Phi_g;                     % 桨距角
+    geometry.PoDp = PoDp;                       % 叶片螺距
+    
+    geometry.part3 = '其他参数';
+    geometry.Geometry_flag = Geometry_flag;     % 生成2/3D演示模型
+    geometry.Coordinate_flag = Coordinate_flag; % 输出点坐标文档
+    geometry.Printing_flag = Printing_flag;     % 生成快速成型文件
+    
+    geometry.part4 = '点坐标';
+    geometry.x2Dr = x2Dr;                       % 2D演示模型横坐标
+    geometry.y2Dr = y2Dr;                       % 2D演示模型纵坐标
+    geometry.x3D = x3D;                         % 3D演示模型x坐标
+    geometry.y3D = y3D;                         % 3D演示模型y坐标
+    geometry.z3D = z3D;                         % 3D演示模型z坐标
+    
+    
 end
-%生成几何文档
-function MakeGeometryTxt(Mp,filename,Date_string,Dp,Z,N,Dhub,Meanline,Thickness,LSGeoCorr,...
-                         RG,CpoDp,t0oc,f0oc,PoD,theta,skew,rake)
-    filename_geometry = strcat(filename,'_Geometry.txt');
-    fid = fopen(filename_geometry,'wt');
-    fprintf(fid,'%s \n',filename_geometry);
-    fprintf(fid,'螺旋桨几何文档\n');
-    fprintf(fid,'日期与时间：%s \n',Date_string);
-    fprintf(fid,'螺旋桨直径 = %.4f m\n',Dp);
-    fprintf(fid,'叶片数量 = %.0f\n',Z);
-    fprintf(fid,'装置行进速度 = %.0f RPM\n',N);
-    fprintf(fid,'桨毂直径 = %.4f m\n',Dhub);
-    if iscell(Meanline)
-        fprintf(fid,'Meanline Type: ');
-        for j = 1:length(Meanline)
-            fprintf(fid,[Meanline{j},', ']);
-        end
-        fprintf(fid,'\n');
-        fprintf(fid,'Thickness Type: ');
-        for j = 1:length(Thickness)
-            fprintf(fid,[Thickness{j},', ']);
-        end
-        fprintf(fid,'\n');   
-    else
-        fprintf(fid,['凸缘线类型：',Meanline,'\n']);
-        fprintf(fid,['叶型类型：',Thickness,'\n']);
-    end
-    fprintf(fid,['Lifting Surface Geometry Corrections: ',LSGeoCorr,'\n']);
-    fprintf(fid,' \n');
-    fprintf(fid,' \n');
-    fprintf(fid,' r/Rp\t  C/Dp\t  t0/C\t   f0/C\t P/Dp\t pitch\t skew \t rake/Dp\n');
-    fprintf(fid,'    \t     \t      \t       \t    \t (deg)\t (deg)\t       \n');
-    for i = 1:Mp
-        fprintf(fid, '%5.4f  %5.4f  %5.4f  %5.4f  %5.4f  %7.4f  %5.4f  %5.4f\n',...
-                RG(i),CpoDp(i),t0oc(i),f0oc(i),PoD(i),theta(i),skew(i),rake(i)/Dp);
-    end
-    fprintf(fid,'\n\n');
-    fprintf(fid,'r/Rp  \t [ ], radial position / propeller radius \n');
-    fprintf(fid,'Cp/Dp  \t [ ], chord length    / propeller diameter \n');
-    fprintf(fid,'P/Dp  \t [ ], pitch           / propeller diameter \n');
-    fprintf(fid,'fo/C \t [ ], max camber      / chord length \n');
-    fprintf(fid,'to/C \t [ ], max thickness   / chord length \n');
-    fclose(fid);
-end
-%按下“叶切面二维图像”后的回调函数
-function Geometry2Dfcn(hObject,ED,RG,x2Dr,y2Dr)
-    global PlotsPanels PlotsStrings;
-    global PlotsValues;
+
+% “叶切面二维轮廓”的回调函数
+function Geometry2Dfcn(hObject,~,Mp,Np,rg,x2Dr,y2Dr)
     global pt;
-    global Fig_Main coordinate;
-    %% 设置图像面板标题
-    set(PlotsPanels,'title',PlotsStrings{13});
-    %% 设置相应按钮的可用状态
-    %查找被按下的按钮数量
-    [pushedlist,pushednum] = PushedFind;
+    global Fig_Main PlotsValues PlotsPanel coordinate;
+    
+    % 设置图像面板标题
+    set(PlotsPanel,'title','叶切面二维轮廓');
+    
+    % 查找被按下的按钮数量
+    [~,pushednum] = PushedFind;
     if pushednum == 0
-        %对按钮13进行操作后，若一个按钮也没有被按下
-        %则除4、5外的所有按钮均可用
+        % 对按钮11进行操作后，若一个按钮也没有被按下，则所有按钮均可用
         set(PlotsValues,'enable','on');
-        if pt.input.Chord_flag ~= 0
+        if ~strcmp(pt.input.ChordMethod,'CLmax')
             set(PlotsValues(1),'enable','off');
-        end
+            if ~strcmp(pt.input.ChordMethod,'ConeyPLL')
+                set(PlotsValues(2),'enable','off');
+            end    
+        end    
         if pt.input.Analyze_flag == 0
-            set(PlotsValues(12),'enable','off');
+            set(PlotsValues(10),'enable','off');
         end 
-        set(PlotsValues(4),'enable','off');
-        set(PlotsValues(5),'enable','off');
     else
-        %对按钮13进行操作后，若存在被按下的按钮
-        %则除13外的所有按钮均不可用
+        % 对按钮11进行操作后，若存在被按下的按钮，则除11外的所有按钮均不可用
         set(PlotsValues,'enable','off');
-        set(PlotsValues(13),'enable','on');
+        set(PlotsValues(11),'enable','on');
     end
-    %% 绘制曲线
-    %按钮按下后才绘制图像
-    if get(PlotsValues(13),'value')
-        %避免绘图时弹窗
+    
+    % 绘制图像
+    if get(hObject,'value')
+        % 避免绘图时弹窗
         set(0,'CurrentFigure',Fig_Main);
-        Mp = size(x2Dr,1)-1;
-        Np = size(x2Dr,2)/2;
         color = {'r','g','b','m','k'};
-        str_prefix = {'r/R = '};  
         cla(coordinate);
         j = 1;
-        for index = 1:ceil(Mp/5):Mp
+        for index = 1 : ceil(Mp/3) : Mp
             Contour_line(j) = plot(coordinate,x2Dr(index,:),y2Dr(index,:),...
                                   'color',color{j},'linewidth',2);
             hold(coordinate,'on');
             plot(coordinate,...
-                 [0.5*(x2Dr(index,1)+x2Dr(index,2*Np)),0.5*(x2Dr(index,Np)+x2Dr(index,Np+1))],...
-                 [0.5*(y2Dr(index,1)+y2Dr(index,2*Np)),0.5*(y2Dr(index,Np)+y2Dr(index,Np+1))],...
+                 [0.5*(x2Dr(index,1)+x2Dr(index,2*Np)),...
+                  0.5*(x2Dr(index,Np)+x2Dr(index,Np+1))],...
+                 [0.5*(y2Dr(index,1)+y2Dr(index,2*Np)),...
+                  0.5*(y2Dr(index,Np)+y2Dr(index,Np+1))],...
                  'color',color{j},'linewidth',1);
             hold(coordinate,'on');
-            LegendStrings(j) = strcat(str_prefix,num2str(RG(index)));
+            LegendStrings{j} = ['rg = ',num2str(rg(index))];
             j = j+1;
         end
         grid(coordinate,'on');
@@ -671,10 +444,55 @@ function Geometry2Dfcn(hObject,ED,RG,x2Dr,y2Dr)
         xlabel(coordinate,'');
         ylabel(coordinate,'');
         legend(coordinate,'off');
-        set(PlotsPanels,'title','点击左侧按钮显示对应图像');
+        set(PlotsPanel,'title','点击左侧按钮显示对应图像');
     end
 end
-%按下“叶片三维图形”后的回调函数
-function Geometry3Dfcn(hObject,ED)
+
+% “螺旋桨三维模型”的回调函数
+function Geometry3Dfcn(hObject,~,Z,x3D,y3D,z3D)
+    global pt;
+    global Fig_Main PlotsValues PlotsPanel coordinate;
     
+    % 设置图像面板标题
+    set(PlotsPanel,'title','螺旋桨三维模型');
+    
+    % 查找被按下的按钮数量
+    [~,pushednum] = PushedFind;
+    if pushednum == 0
+        % 对按钮12进行操作后，若一个按钮也没有被按下，则所有按钮均可用
+        set(PlotsValues,'enable','on');
+        if ~strcmp(pt.input.ChordMethod,'CLmax')
+            set(PlotsValues(1),'enable','off');
+            if ~strcmp(pt.input.ChordMethod,'ConeyPLL')
+                set(PlotsValues(2),'enable','off');
+            end    
+        end    
+        if pt.input.Analyze_flag == 0
+            set(PlotsValues(10),'enable','off');
+        end 
+    else
+        % 对按钮12进行操作后，若存在被按下的按钮，则除12外的所有按钮均不可用
+        set(PlotsValues,'enable','off');
+        set(PlotsValues(12),'enable','on');
+    end
+    
+    % 绘制图像
+    if get(hObject,'value')
+        % 避免绘图时弹窗
+        set(0,'CurrentFigure',Fig_Main);
+        color = {'r','g','b','m','k'};
+        cla(coordinate);
+        for index = 1:Z
+            Propeller_surf = surf(coordinate,x3D(:,:,1),y3D(:,:,index),z3D(:,:,index));
+            hold(coordinate,'on');
+        end
+        
+    else
+        cla(coordinate);
+        xlabel(coordinate,'');
+        ylabel(coordinate,'');
+        legend(coordinate,'off');
+        set(PlotsPanel,'title','点击左侧按钮显示对应图像');
+    end    
+
 end

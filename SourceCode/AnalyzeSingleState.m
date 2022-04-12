@@ -136,7 +136,7 @@ BetaIC  = atan(TANBIC );    % [rad]
 
        
 % ------------------------- Initialize vortex Horseshoe Influence Functions 
-[UAHIF,UTHIF] = Horseshoe110628(Mp,Z,TANBIC,RC,RV,Hub_flag,Rhub_oR,Duct_flag,Rduct_oR);
+[UAHIF,UTHIF] = Horseshoe(Mp,Z,TANBIC,RC,RV,Hub_flag,Rhub_oR,Duct_flag,Rduct_oR);
   
 %% 
     feather     = 0;
@@ -228,28 +228,28 @@ BetaIC  = atan(TANBIC );    % [rad]
              Crash_count = Crash_count + 1;
         end         
 
-        VSTAR  = VSTAR + relax*DX( 1:Mp      )';
-        ALPHA  = ALPHA + relax*DX((1:Mp)+  Mp)';
-        CL     = CL    + relax*DX((1:Mp)+2*Mp)';
+        VSTAR  = VSTAR + relax*DX( 1:Mp      );
+        ALPHA  = ALPHA + relax*DX((1:Mp)+  Mp);
+        CL     = CL    + relax*DX((1:Mp)+2*Mp);
         G      = G     + relax*DX((1:Mp)+3*Mp);
         % -----------------------------------------------------------------     
 
 
         % ----------------------------------------------------------------- 
         % Update induced velocities (influence of propeller on propeller)
-        UASTAR = (UAHIF*G)';  
-        UTSTAR = (UTHIF*G)';  
+        UASTAR = UAHIF*G;  
+        UTSTAR = UTHIF*G;  
         
         TANBIC = (VAC + UADUCT + UASTAR)./(L*RC + VTC + UTSTAR);
                 
         % Smooth the inflow angle for numerical stability:
-        TANBICsmooth = TANBIC * Bsmooth;
+        TANBICsmooth = Bsmooth*TANBIC;
         % ----------------------------------------------------------------- 
         
         
         if Wake_flag == 0 
 
-            [UAHIF,UTHIF] = Horseshoe110628(Mp,Z,TANBICsmooth,RC,RV,Hub_flag,Rhub_oR,Duct_flag,Rduct_oR);
+            [UAHIF,UTHIF] = Horseshoe(Mp,Z,TANBICsmooth,RC,RV,Hub_flag,Rhub_oR,Duct_flag,Rduct_oR);
 
         else
             % % disp('Beginning to update {UAHIF,UTHIF,URHIF}'), 
@@ -281,8 +281,8 @@ BetaIC  = atan(TANBIC );    % [rad]
             end
             
             % Update induced velocities at the duct (influence of propeller on duct)
-            UARINGq = (DAHIFq*G)';  
-            URRINGq = (DRHIFq*G)'; 
+            UARINGq = DAHIFq*G;  
+            URRINGq = DRHIFq*G; 
             
             
             VSRINGq = sqrt((VARING+UARINGq)^2+(URRINGq)^2);     % inflow speed
@@ -301,15 +301,15 @@ BetaIC  = atan(TANBIC );    % [rad]
 
         CLtemp = CLCD_vs_ALPHA(ALPHA+deltaALPHA,ALPHAstall,CL0,CD0,dCLdALPHA,Propeller_flag);
 
-        
+ 
         ERROR    = [ VSTAR -  sqrt((VAC+UADUCT+UASTAR).^2 + (L*RC+VTC+UTSTAR).^2), ...
                      ALPHA -  (BetaIC0 - atan(TANBIC) + feather), ...
                         CL -  CLtemp, ... 
-                        G' -  (1/(2*pi))*VSTAR.*CL.*CoD] ./ ...
+                        G -  (1/(2*pi))*VSTAR.*CL.*CoD] ./ ...
                    [max(abs(VSTAR ),1e-4), ...
                     max(abs(ALPHA ),1e-2), ...
                     max(abs(CL    ),1e-4), ...
-                    max(abs(G'    ),1e-6)]; 
+                    max(abs(G    ),1e-6)]; 
         % ------------------------------------------ END evaluate normalized residuals
         
 
@@ -317,11 +317,11 @@ BetaIC  = atan(TANBIC );    % [rad]
         PERROR    = [ VSTARlast -  VSTAR, ...
                      alphalast -  ALPHA, ...
                         CLlast -     CL, ...
-                        Glast' -     G'] ./ ...
+                        Glast -     G] ./ ...
                    [max(abs(VSTAR ),1e-4), ...
                     max(abs(ALPHA ),1e-2), ...
                     max(abs(CL    ),1e-4), ...
-                    max(abs(G'    ),1e-6)];
+                    max(abs(G    ),1e-6)];
         % ---------------------------------------------- END evaluate percent error
 
 
@@ -368,8 +368,8 @@ BetaIC  = atan(TANBIC );    % [rad]
         end
 
         % Update induced velocities at the duct (influence of propeller on duct)
-        UARING = (DAHIF*G)';  
-        URRING = (DRHIF*G)'; 
+        UARING = DAHIF*G;  
+        URRING = DRHIF*G; 
 
         % Find duct thrust, (CTDdes==1.0 is unused here)            
         [CTD,junk] = Duct_Thrust(XdRING,Rduct_oR,VARING,UARING,URRING,GdRING,Gd,CDd,1.0); 

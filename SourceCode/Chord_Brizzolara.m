@@ -50,11 +50,10 @@ X     = RC; % r/R radii
 
 l     =         CoD * D;  % [m] chord length at RC
 tx    = t0oc .* CoD * D;  % [m] thickness    at RC
-
 p     = 1 ./ (RC .* TANBIC); % by definition, where p == 2*pi*R/(pitch/D)
 
 
-CLl   = 2*(2*pi*R)*G'./VSTAR;  % == CL * CoD * D == lift coefficient * chord
+CLl   = 2*(2*pi*R)*G./VSTAR;  % == CL * CoD * D == lift coefficient * chord
 
 TGBETAI = TANBIC;  % tan(betaI) at RC
 
@@ -174,6 +173,7 @@ while gapMax > 0.01 & step < 1000
     %   da Castagento Maioli (Naval Hydrodynamics (1968))           
                     
     % for each blade section
+    ctsq = zeros(S,1);
       for s=1:S,
 
           vacca11(s) = interp2(aVmat,xVmat,AA1, p(s),X(s), 'spline');
@@ -193,7 +193,7 @@ while gapMax > 0.01 & step < 1000
              ctsq(s) = txmin^2*l(s);
           end
 
-          %calcolo dei coefficienti dell'equazione implicita descritta in CETENA n¬?45 == calculate the coefficients of equaiton (31)
+          %calcolo dei coefficienti dell'equazione implicita descritta in CETENA n??45 == calculate the coefficients of equaiton (31)
           cet11 = ( h2(foil)*sqrt(ctsq(s)) );
           cet21 = ( h1(foil)*P + h3(foil)*(1-P) ) * CLl(s);
           cet31 = ( 1 - sqrt(1+Kcav1*SIGMA(s)) );
@@ -217,9 +217,8 @@ while gapMax > 0.01 & step < 1000
           
           l(s) = suCorda(s)^(-2);   % l == chord [m]
       end
-
+disp('ctsq = ');disp(ctsq);
           tx   = sqrt( ctsq ./ l ); % tx == thickness [m]
-
 
     % Calculation of centrifugal stress sigma_c [Pa]
     % calcolo di sigma_c sollecitazione dovuta alla forza centrifuga, espressi in Pa
@@ -290,6 +289,8 @@ end
 
 txmod = tx;  % modified thickness
  lmod = l;   % modified chord
+
+ 
  
 for i=1:kk 
      txmod(i) =  tx(kk) - (X(kk)-X(i))*mtxh(kk);
@@ -313,10 +314,20 @@ end
 
 CoD   = lmod / D;       % chord/diameter
 
+disp('txmod = ');
+disp(txmod);
+
 t0oc  = txmod ./ lmod;  % thickness/chord
 
 C_res = max([abs(CoD - CoD0),abs(t0oc - t0oc0)]);  % residual chord/diameter difference
 % -------------------------------------------------------------------------
+
+% disp('CoD = ');
+% disp(CoD);
+% disp('t0oc = ');
+% disp(t0oc);
+% disp('C_res = ');
+% disp(C_res);
 
 % Prevent EppsOptimizer code from crashing
 if any(isnan([CoD,t0oc,C_res])) | any(isinf([CoD,t0oc,C_res])) | any([CoD,t0oc,C_res] < 0)

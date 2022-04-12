@@ -1,57 +1,3 @@
-% ----------------------------------------------------------------------- %
-%                                                                         %
-%                              0111000                                    %
-%                           100 1 100 001                                 %
-%                         10    1  1  1 00                                %
-%                        01  1  1  1      0                               %
-%                       0 1  1  1   1  1 1 0                              %
-%                       0   1   1   1  1  1 0                             %
-%                       0 1     1   1  1  1 0                             %
-%                       0 1  1  1   1  0  1 0                             %
-%                       0 1  1  1   0  1    0                             %
-%                       01 1        1  1 1 0                              %
-%                        0    0  1  0 1   0                               %
-%                         0         1    0                                %
-%                    10010 0 1101111110111                                %
-%                  10 1 1  1111111111 11 11                               %
-%                 0 1 1 1 11111111101011010111                            %
-%                01 11    11111111 1  1    1 110                          %
-%               011    1 1 111111110011  1 1 1 110                        %
-%               0   11 1 1 1 111      0  1 1 1   10                       %
-%               0 1   11  1  0         1 1 1 1 1 1 0                      %
-%               1  11 1 1   11          0  1 1 1 1 11                     %
-%                0     1 1  0           011  1 1 1 10                     %
-%                10 1   1  0             0  1 1 1  11                     %
-%                 10     01               01      10                      %
-%                   10001                   001 100                       %
-%                                             111                         %
-%                                                                         %
-%             ____                   _____                                %
-%            / __ \                 |  __ \                               %
-%           | |  | |_ __   ___ _ __ | |__) | __ ___  _ __                 %
-%           | |  | | '_ \ / _ \ '_ \|  ___/ '__/ _ \| '_ \                %
-%           | |__| | |_) |  __/ | | | |   | | | (_) | |_) |               %
-%            \____/| .__/ \___|_| |_|_|   |_|  \___/| .__/                %
-%                  | |                              | |                   %
-%                  |_|                              |_|                   %
-%                                                                         %
-%             An integrated rotor design and analysis tool.               %
-%                                                                         %
-%                                                                         %
-% Copyright (C) 2011, Brenden Epps.                                       %
-%                                                                         %
-% This program is free software; you can redistribute it and/or modify it %
-% under the terms of the GNU General Public License as published by the   %
-% Free Software Foundation.                                               %
-%                                                                         %
-% This program is distributed in the hope that it will be useful, but     %
-% WITHOUT ANY WARRANTY; without even the implied warranty of              %
-% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                    %
-% See the GNU General Public License for more details.                    %
-%                                                                         %
-% ----------------------------------------------------------------------- %
-
-% -------------------------------------------------------------------------
 % 11/18/2011 Brenden Epps
 %
 % This function optimizes blade chord and thickness using the method of
@@ -65,102 +11,100 @@
 
 function [CoD, t0oc, C_res] = Chord_FAST2011_dVAC(dVAC,SIGMAs,L,RC,VAC,VTC,UADUCT,UASTAR,UTSTAR,G,CoD,t0oc,...
                                            DR,CD,Z,Js,VMIV,Hub_flag,Rhub_oR,Rhv,CTD,Mp,R,rho,Vs,N)
+                              
+    % -------------------------------------------------------------------------
+    CoD_last = CoD;    % last value of CoD
+    % -------------------------------------------------------------------------
 
-                                       
-% -------------------------------------------------------------------------
-CoD_last = CoD;    % last value of CoD
-% -------------------------------------------------------------------------
+    disp(' ')
+    disp('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+    disp('Performing FAST2011 chord optimization...')
+    disp(' ')                                       
 
-disp(' ')
-disp('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-disp('Performing FAST2011 chord optimization...')
-disp(' ')                                       
-                                       
-% -------------------------------------------------------------------------
-% Parameters:
-NACAa       = 0.8;               % 'NACA a=0.8' meanline
-RHOLE       = 0.640279919559199; % == 0.00639/(2*0.04995)^2 == leading edge radius / chord, for t0oc==1 (RLE = RHOLE*t0oc^2)
-CAVmargin   = 1.0;               % allowable SIGMAs = CAVmargin*SIGMAs
-CoDmax      = 0.65;              % maximum allowable c/D
-% -------------------------------------------------------------------------
+    % -------------------------------------------------------------------------
+    % Parameters:
+    NACAa       = 0.8;               % 'NACA a=0.8' meanline
+    RHOLE       = 0.640279919559199; % == 0.00639/(2*0.04995)^2 == leading edge radius / chord, for t0oc==1 (RLE = RHOLE*t0oc^2)
+    CAVmargin   = 1.0;               % allowable SIGMAs = CAVmargin*SIGMAs
+    CoDmax      = 0.65;              % maximum allowable c/D
+    % -------------------------------------------------------------------------
+    dALPHA = atan((VAC+UADUCT+UASTAR)./(L*RC+VTC+UTSTAR))-atan((VAC+UADUCT+UASTAR-dVAC)./(L*RC+VTC+UTSTAR));  % [rad] inflow angle variation    
 
-% -------------------------------------------------------------------------
-dALPHA = atan( (VAC + UADUCT + UASTAR)./(L*RC + VTC + UTSTAR) )   -   atan( (VAC + UADUCT + UASTAR - dVAC)./(L*RC + VTC + UTSTAR) );  % [rad] inflow angle variation    
+      VSTAR  = sqrt( (VAC + UADUCT + UASTAR       ).^2 + (L*RC + VTC + UTSTAR).^2 );
+    % VSTARe = sqrt( (VAC + UADUCT + UASTAR - dVAC).^2 + (L*RC + VTC + UTSTAR).^2 );
 
-  VSTAR  = sqrt( (VAC + UADUCT + UASTAR       ).^2 + (L*RC + VTC + UTSTAR).^2 );
-% VSTARe = sqrt( (VAC + UADUCT + UASTAR - dVAC).^2 + (L*RC + VTC + UTSTAR).^2 );
+      SIGMA  = SIGMAs./VSTAR.^2;  % local cavitation number
+    % SIGMA  = SIGMAs./VSTARe.^2; % local cavitation number
+    % -------------------------------------------------------------------------
 
-  SIGMA  = SIGMAs./VSTAR.^2;  % local cavitation number
-% SIGMA  = SIGMAs./VSTARe.^2; % local cavitation number
-% -------------------------------------------------------------------------
+    % -------------------------------------------------------------------------
+    % CASE 2: Find optimum using Newton solver
+    g1   = 4/pi;
+    g2   = pi*G./((1+NACAa)*VSTAR);
+    g3sq = (2/RHOLE) .* (dALPHA).^2;
+    
+    CoD_2 = zeros(Mp,1);
+    for i = 1:Mp
+        [CoD_2(i),t0oc(i)] = Chord_ctSolver_deltaALPHA(CAVmargin*SIGMA(i), g1, g2(i), g3sq(i) , CoD(i), t0oc(i));
+    end
 
-% -------------------------------------------------------------------------
-% CASE 2: Find optimum using Newton solver
-g1   = 4/pi;
-g2   = pi*G'./((1+NACAa)*VSTAR);
-g3sq = (2/RHOLE) .* (dALPHA).^2;
-
-for i = 1:Mp
-    [CoD_2(i),t0oc(i)] = Chord_ctSolver_deltaALPHA(CAVmargin*SIGMA(i), g1, g2(i), g3sq(i) , CoD(i), t0oc(i));
-end
-
-% -----------------------------------------------------------------
-% CASE 1: Solve for CoD required by CASE 1 for given t0oc calculated using CASE 2.
-%
-CoD_1 = g2 ./ (-dALPHA + sqrt(dALPHA.^2 + (CAVmargin*SIGMA+1)) - (1 + g1*t0oc) );
-% -----------------------------------------------------------------
+    % -----------------------------------------------------------------
+    % CASE 1: Solve for CoD required by CASE 1 for given t0oc calculated using CASE 2.
+    %
+    CoD_1 = g2 ./ (-dALPHA + sqrt(dALPHA.^2 + (CAVmargin*SIGMA+1)) - (1 + g1*t0oc) );
+    % -----------------------------------------------------------------
 
 
-% -----------------------------------------------------------------
-% Set CoD to maximum of CASE 1 or CASE 2
-%
-CoD  = max(CoD_1,CoD_2);
+    % -----------------------------------------------------------------
+    % Set CoD to maximum of CASE 1 or CASE 2
+    %
+    CoD  = max(CoD_1,CoD_2);
 
-% Enforce maximum allowable c/D 
-CoD = min(CoD,CoDmax);
-
-
-t0oD = t0oc .* CoD;
-% -----------------------------------------------------------------
-% -----------------------------------------------------------------
-% -----------------------------------------------------------------
+    % Enforce maximum allowable c/D 
+    CoD = min(CoD,CoDmax);
 
 
-% -----------------------------------------------------------------
-% Augment CoD and t0oD using ABS_Blade method (where "rated speed" is the endurance speed, Vs)
-% -----------------------------------------------------------------
-% alphaItilde = 1.54; % [deg]
-%    CLItilde = 1;
-
-CL       = 2*pi*G'./(VSTAR.*CoD);           % lift coefficient
-
-alphaI   = 1.54*CL;                         % == alphaItilde.*CL/CLItilde;        
-
-TANBIC   = (VAC + UADUCT + UASTAR)./(L*RC + VTC + UTSTAR);
-
-TANtheta = tand( atand(TANBIC) + alphaI );  % tan(pitch angle)
-
-% CP == power coefficient
-[junk1,junk2,CP] = Forces(RC,DR,VAC,VTC,UASTAR,UTSTAR,UADUCT,CD,CoD,G,Z,Js,VMIV,Hub_flag,Rhub_oR,Rhv,CTD);
+    t0oD = t0oc .* CoD;
+    % -----------------------------------------------------------------
+    % -----------------------------------------------------------------
+    % -----------------------------------------------------------------
 
 
-[CoD, t0oD] = Chord_ABS_Blade(RC,t0oD,t0oc,TANtheta,  CP,R,rho,Vs,N,Z);          
-% -------------------------------------------------------------------------
-% -------------------------------------------------------------------------
+    % -----------------------------------------------------------------
+    % Augment CoD and t0oD using ABS_Blade method (where "rated speed" is the endurance speed, Vs)
+    % -----------------------------------------------------------------
+    % alphaItilde = 1.54; % [deg]
+    %    CLItilde = 1;
+
+    CL       = 2*pi*G./(VSTAR.*CoD);           % lift coefficient
+
+    alphaI   = 1.54*CL;                         % == alphaItilde.*CL/CLItilde;        
+
+    TANBIC   = (VAC + UADUCT + UASTAR)./(L*RC + VTC + UTSTAR);
+
+    TANtheta = tand( atand(TANBIC) + alphaI );  % tan(pitch angle)
+
+    % CP == power coefficient
+    [junk1,junk2,CP] = Forces(RC,DR,VAC,VTC,UASTAR,UTSTAR,UADUCT,CD,CoD,G,Z,Js,VMIV,Hub_flag,Rhub_oR,Rhv,CTD);
+
+
+    [CoD, t0oD] = Chord_ABS_Blade(RC,t0oD,t0oc,TANtheta,  CP,R,rho,Vs,N,Z);          
+    % -------------------------------------------------------------------------
+    % -------------------------------------------------------------------------
 
 
 
-% -------------------------------------------------------------------------        
-C_res = max( abs(CoD-CoD_last) ); % residual CoD
-% -------------------------------------------------------------------------
-      
-disp('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-disp(['The max  C_res is: ',num2str(C_res)]),
-disp('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-disp(' ')
-disp('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-disp('Continuing circulation optimization:')
-disp(' ')
+    % -------------------------------------------------------------------------        
+    C_res = max( abs(CoD-CoD_last) ); % residual CoD
+    % -------------------------------------------------------------------------
+
+    disp('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+    disp(['The max  C_res is: ',num2str(C_res)]),
+    disp('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+    disp(' ')
+    disp('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+    disp('Continuing circulation optimization:')
+    disp(' ')
 
 
 end

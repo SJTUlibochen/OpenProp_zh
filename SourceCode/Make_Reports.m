@@ -1,17 +1,19 @@
-%绘制在OpenPropSingle.m中没有设置的按钮回调函数，以及对应的曲线
+% 设置在MainPage.m中ResultPage函数中没有设置的输入按钮的回调函数，并绘制对应的曲线
 function Make_Reports
     global PlotsValues;
-    %设置按钮的回调函数
-    set(PlotsValues(6),'valuechangedfcn',@Circulationfcn);
-    set(PlotsValues(7),'valuechangedfcn',@InducedVelocityfcn);
-    set(PlotsValues(8),'valuechangedfcn',@InflowAnglefcn);
-    set(PlotsValues(9),'valuechangedfcn',@ExpandedBladeDefcn);
-    set(PlotsValues(10),'valuechangedfcn',@BladeThicknessDefcn);
-    set(PlotsValues(11),'valuechangedfcn',@Liftfcn);
-    set(PlotsValues(12),'valuechangedfcn',@Performancefcn);
+    
+    % 设置输出按钮的回调函数
+    set(PlotsValues(4),'valuechangedfcn',@Circulationfcn);
+    set(PlotsValues(5),'valuechangedfcn',@InducedVelocityfcn);
+    set(PlotsValues(6),'valuechangedfcn',@InflowAnglefcn);
+    set(PlotsValues(7),'valuechangedfcn',@ExpandedBladeDefcn);
+    set(PlotsValues(8),'valuechangedfcn',@ThicknessResultfcn);
+    set(PlotsValues(9),'valuechangedfcn',@CLResultfcn);
+    set(PlotsValues(10),'valuechangedfcn',@Performancefcn);
 end
-%按下“环量分布曲线”后的回调函数
-function Circulationfcn(hObject,ED)
+
+% “环量分布曲线”后的回调函数
+function Circulationfcn(~,~)
     global PlotsPanels PlotsStrings;
     global PlotsValues;
     global pt;
@@ -85,8 +87,9 @@ function Circulationfcn(hObject,ED)
         set(PlotsPanels,'title','点击左侧按钮显示对应图像');
     end
 end
-%按下“诱导速度分布曲线”后的回调函数
-function InducedVelocityfcn(hObject,ED)
+
+% “诱导速度分布曲线”后的回调函数
+function InducedVelocityfcn(~,~)
     global PlotsPanels PlotsStrings;
     global PlotsValues;
     global pt;
@@ -181,8 +184,9 @@ function InducedVelocityfcn(hObject,ED)
         set(PlotsPanels,'title',PlotsStrings{3});
     end
 end
-%按下“相关角度的分布曲线”后的回调函数
-function InflowAnglefcn(hObject,ED)
+
+% “相关角度的分布曲线”后的回调函数
+function InflowAnglefcn(~,~)
     global PlotsPanels PlotsStrings;
     global PlotsValues;
     global pt;
@@ -268,8 +272,9 @@ function InflowAnglefcn(hObject,ED)
         set(PlotsPanels,'title','点击左侧按钮显示对应图像');
     end
 end
-%按下“叶片伸张轮廓曲线(来自设计结果)”后的回调函数
-function ExpandedBladeDefcn(hObject,ED)
+
+% “伸张轮廓曲线”后的回调函数
+function ExpandedBladeDefcn(~,~)
     global PlotsPanels PlotsStrings;
     global PlotsValues;
     global pt;
@@ -359,8 +364,9 @@ function ExpandedBladeDefcn(hObject,ED)
         set(PlotsPanels,'title',PlotsStrings{1});
     end
 end
-%按下“叶片厚度分布曲线(来自设计结果)”后的回调函数
-function BladeThicknessDefcn(hObject,ED)
+
+% “厚径比分布曲线”后的回调函数
+function ThicknessResultfcn(~,~)
     global PlotsPanels PlotsStrings;
     global PlotsValues;
     global pt;
@@ -450,8 +456,9 @@ function BladeThicknessDefcn(hObject,ED)
         set(PlotsPanels,'title',PlotsStrings{2});
     end
 end
-%按下“升力系数分布曲线”后的回调函数
-function Liftfcn(hObject,ED)
+
+% “升力系数分布曲线”后的回调函数
+function CLResultfcn(~,~)
     global PlotsPanels PlotsStrings;
     global PlotsValues;
     global pt;
@@ -525,7 +532,52 @@ function Liftfcn(hObject,ED)
         set(PlotsPanels,'title','点击左侧按钮显示对应图像');
     end
 end
-%按下“性能曲线”后的回调函数
-function Performancefcn(hObject,ED)
+
+% 按下“性能曲线”后的回调函数
+function Performancefcn(~,~)
+    global pt;
     
+    if pt.input.Analyze_flag
+        pt.states = AnalyzeAuto(pt);
+        set(0,'CurrentFigure',Plots);
+        h = axes('parent',PlotsPanels(15));
+        axes(h);
+        hold on;
+        if Propeller_flag == 1
+            VMIV = pt.design.VMIV;
+            Js_curve = linspace(min(pt.states.Js),max(pt.states.Js),100);
+            EFFY_curve = (Js_curve/(2*pi)) * VMIV .* pchip(pt.states.Js,pt.states.KT,Js_curve)./pchip(pt.states.Js,pt.states.KQ,Js_curve); 
+            % Efficiency (green squares)
+            plot(Js_curve,EFFY_curve,'-','LineWidth',2,'Color',[0 0.8 0])
+            Heffy = plot(pt.states.Js,pt.states.EFFY,'sk','MarkerSize',5,'LineWidth',1,'MarkerFaceColor',[0 0.8 0]); 
+            % Thrust coefficient (blue diamonds)
+            plot(pt.states.Js,pt.states.KT,'b-','LineWidth',2)
+            Hkt   = plot(pt.states.Js,pt.states.KT,'dk','MarkerSize',5,'LineWidth',1,'MarkerFaceColor','b');
+            % Torque coefficient (red circles)
+            plot(pt.states.Js,10*pt.states.KQ,'r-','LineWidth',2)    
+            Hkq = plot(pt.states.Js,10*pt.states.KQ,'ok','MarkerSize',5,'LineWidth',1,'MarkerFaceColor','r');
+            % Design point
+            plot(pt.design.Js*[1 1],[0 2],'k--','LineWidth',1);
+            xlabel('Js','FontSize',16,'FontName','Times'), 
+            ylabel('KT, 10*KQ, EFFY','FontSize',16,'FontName','Times')
+            axis([min(pt.states.Js) max(pt.states.Js) 0 0.9])
+            set(gca,'FontSize',14,'FontName','Times');
+            box on, grid on,
+            ylimits = get(gca,'Ylim');
+            set(gca,'Ylim', [0  max(1,ylimits(2)) ] );
+        else
+            % Power coefficient (blue dots)
+            plot(pt.states.L,-pt.states.CP,'b.-','LineWidth',2,'MarkerSize',12)
+            % Design point
+            plot(pt.design.L*[1 1],[0 0.6],'k--','LineWidth',1);
+            % % Betz limit
+            % plot([0 ceil(max(pt.states.L))],(16/27)*[1 1],'k--','LineWidth',1);
+            xlabel('L','FontSize',16,'FontName','Times'), 
+            ylabel('CP','FontSize',16,'FontName','Times'),
+            set(gca,'Ytick',[0:0.1:0.6])
+            axis([0 ceil(max(pt.states.L))  0 0.6])
+            set(gca,'FontSize',14,'FontName','Times');
+            box on, grid on,
+        end
+    end
 end

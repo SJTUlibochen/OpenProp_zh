@@ -115,17 +115,16 @@
 
 
 function [Bsmooth] = RepairSplineMatrix(RC)
-
-
-% ------------------------------------------------ Implement RepairSpline.m
-% To smooth the data X(RC):  X_smooth = (SplineBasis*pinv(SplineBasis)*X(:))';
-%
-TC = (RC(:) - RC(1)) / (RC(end) - RC(1)); % Map RC into TC in the interval [0,1]
-n = 5;                                    % number of splines == n + 1
-k = 4;                                    % polynomial order, k == 4 for cubic B-splines
-SplineBasis = Bspline_basis(TC,n,k);      % B-spline basis functions [Mp,n+1]
-%
-Bsmooth = (SplineBasis*pinv(SplineBasis))';
+    % ------------------------------------------------ Implement RepairSpline.m
+    % To smooth the data X(RC):  X_smooth = (SplineBasis*pinv(SplineBasis)*X(:))';
+    %
+    TC = (RC(:) - RC(1)) / (RC(end) - RC(1)); % Map RC into TC in the interval [0,1]
+    n = 5;                                    % number of splines == n + 1
+    k = 4;                                    % polynomial order, k == 4 for cubic B-splines
+    SplineBasis = Bspline_basis(TC,n,k);      % B-spline basis functions [Mp,n+1]
+    %
+    Bsmooth = SplineBasis*pinv(SplineBasis);
+end
 %
 % Now: X_smooth = X*Bsmooth;
 % -------------------------------------------------------------------------

@@ -23,1200 +23,492 @@
 %
 function [design] = EppsOptimizer(input)
     global Fig_Main;
-    %% 从结构体数组pt中导出GUI界面保存的数据
-    %part1——“叶片规格”数据
-    Z = input.Z;
+    %% 从pt中导出输入值
+    % part1 “螺旋桨规格”
     N = input.N;
+    VS = input.VS;
+    T = input.T;
+    Z = input.Z;
     Dp = input.Dp;
-    Rp = Dp/2;
-    Thrust = input.Thrust;
-    Vs = input.Vs;
-    Dhub = input.Dhub;
-    Rhub = Dhub/2;
-    Rhub_oR = Rhub/Rp;
-    rho = input.rho;
-    Mp = input.Mp;
-    Np = input.Np;
-    Meanline = input.Meanline;
-    Thickness = input.Thickness;
-    %part2——“叶片设计参数”数据
-    Xr = input.Xr;
-    XCdp = input.XCdp;
-    XCLmax = input.XCLmax;
-    XCpoDp = input.XCpoDp;
-    Xt0oDp = input.Xt0oDp;
-    X1 = ones(size(Xr));
-    X0 = zeros(size(Xr));
-    skew = input.skew0;
-    rake = input.rake0;
-    %part3——“流入速度/装置行进速度”数据
-    ri = input.ri;
-    VAI = input.VAI;
-    VTI = input.VTI;
-    %通过拟合使“流入速度/装置行进速度”数据更加光滑
-    VAI = RepairSpline(ri,VAI);  
-    VTI = RepairSpline(ri,VTI);
-    if isfield(input,'dVAI')
-        dVAI = input.dVAI;
-    else
-        dVAI = zeros(size(ri));
-    end
-    %part4——“设计选项”数据
-    Propeller_flag = input.Propeller_flag;
     Hub_flag = input.Hub_flag;
+    Dh = input.Dh;
     Duct_flag = input.Duct_flag;
-    Chord_flag = input.Chord_flag;
-    Viscous_flag = input.Viscous_flag;
+    Dd = input.Dd;
+    Cd = input.Cd;
+    Ld = input.Ld;
+    
+    % part2 “叶片切面参数”
+    Nx = input.Nx;
+    ChordMethod = input.ChordMethod;
+    Meanline_flag = input.Meanline_flag;
+    Thickness_flag = input.Thickness_flag;
+    rx = input.rx;
+    CDp_x = input.CDp_x;
+    Meanline_x = input.Meanline_x;
+    Thickness_x = input.Thickness_x;   
+    CL_x = input.CL_x;
+    T0oDp_x = input.T0oDp_x;
+    
+    % part3 “外部环境参数”
+    Ni = input.Ni;
+    rho = input.rho;
+    ri = input.ri;
+    VA_i = input.VA_i;
+    VT_i = input.VT_i;
+    % 通过拟合使“流入速度/装置行进速度”数据更加光滑
+    VA_i = RepairSpline(ri,VA_i);  
+    VT_i = RepairSpline(ri,VT_i);
+    
+    % part4 “涵道相关参数”
+    TdoT = input.TdoT;
+    CDd = input.CDd;
+    
+    % part5 “其他参数与工具”
     Analyze_flag = input.Analyze_flag;
     Geometry_flag = input.Geometry_flag;
-    txt_flag = input.txt_flag;
-    csv_flag = input.csv_flag;
-    stl_flag = input.stl_flag;
-    %part5——“涵道螺旋桨”数据
-    if Duct_flag == 1
-        TpoT = input.TpoT;
-        Cdd = input.Cdd;
-        Rduct_oR = input.Rduct_oR;
-        %
-        if isfield(input,'Cduct_oR')
-            Cduct_oR = input.Cduct_oR;
-        elseif isfield(input,'Cduct')
-            Cduct_oR = input.Cduct/Rp;
-        else
-            Cduct_oR = 1;
-        end
-        if isfield(input,'Xduct_oR')
-            Xduct_oR = input.Xduct_oR;
-        elseif isfield(input,'Xduct')
-            Xduct_oR = input.Xduct/Rp;
-        else
-            Xduct_oR = 0;
-        end
-    else
-        %推力全部由螺旋桨提供
-        TpoT = 1;
-        Cdd = 0;
-        Rduct_oR = 1;
+    Coordinate_flag = input.Coordinate_flag;
+    Printing_flag = input.Printing_flag;
+    Mp = input.Mp;
+    Np = input.Np;
+    Nd = input.Nd;
+    ITER = input.ITER;
+    
+    % 其余参数
+    HUF = 0;
+    TUF = 0;
+    Rhv = 0.5;
+    H = 3.048;
+    g = 9.81;
+    Patm = 101325;
+    Pv = 2500;
+    rx_def = [0.2;0.3;0.4;0.5;0.6;0.7;0.8;0.9;0.95;1];
+    CpoDp_x_def = [0.1600;0.1812;0.2024;0.2196;0.2305;...
+                   0.2311;0.2173;0.1807;0.1388;0.0010];
+    % 输入中没有指定扭矩，若不指定升力而指定扭矩则为1
+    TorqueSpec_flag = 0;
+    % 指定展开面积比(EAR)
+    EARspec = 0;
+    
+    %% 引申参数
+    RhoRp = Dh/Dp;
+    
+    RdoRp = Dd/Dp;
+    CdoRp = 2*Cd/Dp;
+    % XdoRp反映涵道轴向中点处距离原点的距离
+    XdoRp = 2*(Ld-Cd/2)/Dp;
+    
+    TpoT = 1-TdoT;
+    
+    SIGMAs = (Patm+rho*g*H-Pv)/(0.5*rho*VS^2);
+    
+    Js = VS/((N/60)*Dp);
+    L = pi/Js;
+    KT = T/(rho*(N/60)^2*Dp^4);
+    CT = T/(0.5*rho*VS^2*pi*(Dp/2)^2);
+    
+    % CT_desired为所要求的总推力系数，CT_desired = CTp_desired+CTd_desired
+    CT_desired = CT;
+    % 叶片所提供的推力系数
+    CTp_desired = CT_desired*TpoT;
+    % 涵道所提供的推力系数
+    CTd_desired = CT_desired*TdoT;
+    
+    % 获取切面拱度和理想升力系数的数据
+    F0oCptilde_x = zeros(Nx,1);
+    CLItilde_x = zeros(Nx,1);
+    for index = 1 : Nx
+        [F0oCptilde_x(index),CLItilde_x(index)] = GeometryFoil2D(Meanline_x{index},...
+                                                                Thickness_x{index});
     end
-    %part6——“无量纲参数”数据
-    if Propeller_flag == 1
-        Js = input.Js;
-        L = pi/Js;
-        KT = input.KT;
-        CT = input.CT;
-    else
-        L = input.L;
-        Js = pi/L;
-    end
-    %part7——“其他非输入参数”数据
-    if isfield(input,'ITER')
-        ITER = input.ITER;
-    else
-        ITER = 50;
-    end
-    if isfield(input,'HUF')
-        HUF = input.HUF;
-    else
-        HUF = 0;
-    end
-    if isfield(input,'TUF')
-        TUF = input.TUF;
-    else
-        TUF = 0;
-    end
-    if isfield(input,'Rhv')
-        Rhv = input.Rhv;
-    else
-        Rhv = 0.5;
-    end
-    %气蚀现象参数
-    if isfield(input,'H')
-        H = input.H;
-    else
-        H = 3.048;
-    end
-    if isfield(input,'g')
-        g = input.g;
-    else
-        g = 9.81;
-    end
-    if isfield(input,'Patm')
-        Patm = input.Patm;
-    else
-        Patm = 101325;
-    end
-    if isfield(input,'Pv')
-        Pv = input.Pv;
-    else
-        Pv = 2500;
-    end
-    SIGMAs = (Patm + rho*g*H - Pv)/(0.5*rho*Vs^2);   
-    %当前没有这个输入选择
-    if isfield(input,'ChordMethod')
-        ChordMethod = input.ChordMethod;  
-    else
-        ChordMethod = 'CLmax';
-    end
-    %% 计算螺旋桨/涡轮情况下的推力系数
-    if Propeller_flag == 1
-        %CTdes == desired total thrust coefficient == CTPdes + CTDdes
-        %装置总推力系数
-        if isfield(input,'Thrust')
-            CTdes = input.Thrust/(0.5*rho*Vs^2*pi*Rp^2);
-        elseif isfield(input,'CT') 
-            CTdes = input.CT;
-        elseif isfield(input,'KT')
-            CTdes = input.KT*(8/pi)/Js^2;
-        else
-            CTdes = 0;
-        end
-        %CQdes == desired torque coefficient
-        %装置总扭矩系数
-        if isfield(input,'TORQUE')
-            CQdes = input.TORQUE/(0.5*rho*Vs^2*pi*Rp^3);
-        elseif isfield(input,'CQDES')
-            CQdes = input.CQDES; 
-        elseif isfield(input,'CQ')
-            CQdes = input.CQ;
-        elseif isfield(input,'KQDES')
-            CQdes = input.KQDES*(16/pi)/Js^2;
-        elseif isfield(input,'KQ')
-            CQdes = input.KQ*(16/pi)/Js^2;
-        else 
-            CQdes = 0;
-        end
-        %这里没有必要进行判断，输入目前均为推力输入，没有扭矩输入
-        if CTdes > 0 
-            %GUI界面中指定了推力
-            TorqueSpec_flag = 0;
-        else
-            %GUI界面中指定了扭矩
-            TorqueSpec_flag = 1;
-        end
-        %螺旋桨和导管的推力系数要求
-        CTPdes = CTdes*TpoT;
-        CTDdes = CTdes*(1-TpoT);
-    else
-        %如果没有特别设定，在涡轮设计情况下将涡轮和涵道的推力系数均设为0
-        if isfield(input,'THRUSTduct')
-            CTDdes = input.THRUSTduct/(0.5*rho*Vs^2*pi*Rp^2);
-        elseif isfield(input,'CTD')
-            CTDdes = input.CTD;
-        elseif isfield(input,'KTD')
-            CTDdes = input.KTD*(8/pi)/Js^2;
-        else
-            CTDdes = 0;
-        end
-        TpoT = 0;
-        CTPdes = 0;
-    end
-    %% 根据螺旋桨/涡轮以及输入的叶型、凸缘线类型获得径向参数值
-    if Chord_flag == 1
-        CdpoCL = mean(abs(XCdp./XCLmax));
-        %Specified Expanded Area Ratio (EAR)
-        %指定展开面积比
-        if isfield(input,'EAR')
-            EARspec = input.EAR;
-        else
-            EARspec = 0;
-        end
-        if strcmp(ChordMethod,'FAST2011dCTP') == 1
-            % Method: see (Epps et al., FAST'2011)
-            %指定高速情况
-            if isfield(input,'Vh')
-                Vh = input.Vh;
-            else
-                Vh = Vs;
-            end
-            Jh = Js;  % initial guess for advance coefficient for high-speed state
-            %CTdesh == desired total thrust coefficient for high-speed state
-            if isfield(input,'THRUSTh')
-                CTdesh = input.THRUSTh/(0.5*rho*Vh^2*pi*Rp^2);
-            elseif isfield(input,'CTdesh')
-                CTdesh = input.CTdesh; 
-            elseif isfield(input,'CTh')
-                CTdesh = input.CTh; 
-            else
-                CTdesh = CTdes;
-            end
-            SIGMAh = (Patm + rho*g*H - Pv)/(0.5*rho*Vh^2);
-        end
-    else
-        XCLmax = X1;
-        CdpoCL = 0;
-    end
-    if Propeller_flag == 0
-        XCLmax = -abs(XCLmax);
-    end
-    if Viscous_flag == 0
-        XCdp = X0;
-        CdpoCL = 0;
-        Cdd = 0;
-    end
-    % Geometry inputs for (Coney, 1989) chord optimization method
-    if iscell(Meanline)
-        if length(Meanline) ~= length(Xr)
-            disp('错误：凸缘线类型的元胞数组中元素数量与径向位置分段数量不同')
-            return
-        else
-            Xf0octilde = 0*Xr; % memory allocation
-            XCLItilde = 0*Xr; % memory allocation
-            for j = 1:length(Xr)
-                [Xf0octilde(j),XCLItilde(j),alphaItilde(j),fof0(j),dfof0dxoc(j),tot0(j),As0(j)] = GeometryFoil2D(Meanline{j},Thickness{j});
-            end
-        end
-    else
-        [f0octilde,CLItilde,alphaItilde,fof0,dfof0dxoc,tot0,As0] = GeometryFoil2D(Meanline,Thickness);
-        Xf0octilde = f0octilde * ones(size(Xr));
-        XCLItilde = CLItilde * ones(size(Xr));
-    end
-    %检查是否满足涡轮设计的条件
-    if (Propeller_flag == 0) && any(VAI < 0.99)
-        message = sprintf('警告：当前版本的OpenProp只支持均匀轴向流条件下的涡轮设计');
-        uialert(Fig_Main,message,'不支持的功能','icon','warning');
-    end
+    
+    % 生成弦径比的插值数据
+    CpoDp_x = InterpolateChord(rx_def,CpoDp_x_def,rx);
+    
     %% 计算控制点和涡格点的径向位置并进行插值
-    %Compute the Volumetric Mean Inflow Velocity, eqn 163, p.138
-    %生成[Rhub_oR,1]之间100个等距点组成的向量
-    XRtemp = linspace(Rhub_oR,1,100);         % (temp) radius / propeller radius
-    XVAtemp = pchip(ri,VAI,XRtemp);            % (temp) axial inflow velocity /ship velocity
-    VMIV = 2*trapz(XRtemp,XRtemp.*XVAtemp)/(1^2-Rhub_oR^2);  % [ ], VMIV/ship velocity
-    %计算生成涡点和控制点的径向位置
-    [RC,RV,DR] = LLPanelRadii(Mp,Rhub_oR,Hub_flag,Duct_flag);
-    %在相应径向位置进行插值
-    VAC = pchip(ri,VAI,RC);   % axial inflow vel.  / Vs at ctrl pts
-    dVAC = pchip(ri,dVAI,RC);   % delta( axial inflow vel.) / Vs due to wake, for chord optimization
-    VTC = pchip(ri,VTI,RC);   % tangential inflow vel. / ship vel. at ctrl pts
-    Cdp = pchip(Xr,XCdp,RC);   % section drag coefficient at ctrl pts
-    t0oDp = pchip(Xr,Xt0oDp,RC);   % section thickness / propeller dia. at ctrl pts
-    CLmax = pchip(Xr,XCLmax,RC);   % maximum allowable lift coefficient at ctrl pts
-    f0octilde = pchip(Xr,Xf0octilde,RC);
-    CLItilde = pchip(Xr,XCLItilde,RC);
-    %针对叶梢的情况选择不同的插值方法
-    if (abs(Xr(end)-1) < 1e-4) && (XCpoDp(end) <= 0.01)  % if XR == 1 and XCpoDp == 0
-        CpoDp = InterpolateChord(Xr,XCpoDp,RC);   % section chord / propeller diameter at ctrl pts
+    % 生成[RhoRp,1]之间100个等距点组成的向量
+    ri_expanded = linspace(RhoRp,1,100);
+    VA_i_expanded = pchip(ri,VA_i,ri_expanded);
+    % 计算平均速度，可以参考Kerwin讲义p.138的eqn 163
+    VMIV = 2/(1^2-RhoRp^2)*trapz(ri_expanded,ri_expanded.*VA_i_expanded);
+    
+    % 计算涡格点和控制点的径向位置 rc:[Mp*1];rv:[Mp+1*1]
+    [rc,rv,drv] = LLPanelRadii(Mp,RhoRp,Hub_flag,Duct_flag);
+    
+    % 在相应径向位置进行插值
+    VA_c = pchip(ri,VA_i,rc);
+    VT_c = pchip(ri,VT_i,rc);
+    CDp_c = pchip(rx,CDp_x,rc);
+    T0oDp_c = pchip(rx,T0oDp_x,rc);
+    CL_c = pchip(rx,CL_x,rc);
+    F0oCdtilde_c = pchip(rx,F0oCptilde_x,rc);
+    CLItilde_c = pchip(rx,CLItilde_x,rc);
+    
+    if (abs(rx(end)-1) < 1e-4) && (CpoDp_x(end) <= 0.01)
+        % 叶梢处要求厚度和弦长为0时采用下列方法
+        CpoDp_c = InterpolateChord(rx,CpoDp_x,rc);
     else
-        CpoDp = pchip(Xr,XCpoDp,RC);   % section chord / propeller diameter at ctrl pts
+        CpoDp_c = pchip(rx,CpoDp_x,rc);
     end
-    t0oc = t0oDp./CpoDp; % input t0/c values
-    %% 设置计算的初始值
-    %基于桨盘理论初始化诱导速度和部分角度的估值
-    if Propeller_flag == 1
-        G = zeros(Mp,1);        %G = Gamma / 2*pi*Rp*Vs
-        UASTAR = 0*RC + 0.5*(sqrt(1+CTPdes)-1);     % Kerwin & Hadler (2010), eqn (4.26)
-        UTSTAR = 0*RC;
-        if (VMIV < 0.05)                       % assume bollard pull propeller design
-            UASTAR = 0*RC + 0.5*sqrt(CTPdes);  % (Epps, 2013)
-        end
-    else                                                %  element is a turbine
-        [CPBetz,BetzRC,BetzG,BetzUA,BetzUT,BetzTAN, BetzGRC] = Turbine_ADS_Theory(L,Z,CdpoCL,RC);
-        G = BetzGRC';                              % G = Gamma / 2*pi*Rp*Vs
-        UASTAR = pchip(BetzRC,BetzUA,RC);
-        UTSTAR = pchip(BetzRC,BetzUT,RC);
+    T0oCp_c = T0oDp_c./CpoDp_c;
+    
+    %% 设置迭代初始值
+    % 设置归一化环量初始值 G = Gamma/2*pi*Rp*VS
+    Gp = zeros(Mp,1);
+    
+    % 设置轴向和切向诱导速度初始值 Kerwin & Hadler (2010), eqn (4.26)
+    UASTAR = 0*rc+0.5*(sqrt(1+CTp_desired)-1);
+    UTSTAR = 0*rc;
+    % 周围流场低流速情况 (Epps, 2013)
+    if VMIV < 0.05
+        UASTAR = 0*rc + 0.5*sqrt(CTp_desired);
     end
-    TANBC = VAC./(L*RC + VTC);
-    TANBIC = (VAC + UASTAR)./(L*RC + VTC + UTSTAR);
-    VSTAR = sqrt((VAC+UASTAR).^2 + (L*RC+VTC+UTSTAR).^2);        % V* / Vs
-    dVdG = zeros(Mp,Mp);					   	 % (2piR) * d(V*) /d(Gamma)
-    %如果进行弦长优化，弦长迭代的初始值应设置较小
-    if Chord_flag == 1
-        if Propeller_flag == 1
-            CpoDp = 0.01*ones(size(RC));
-        else
-            CpoDp = 2*pi*G'./(VSTAR.*CLmax);
-        end 
-    end
-    %初始化马蹄涡相关参数
-    %Initialize vortex Horseshoe Influence Functions 
-    [UAHIF,UTHIF] = Horseshoe(Mp,Z,TANBIC,RC,RV,Hub_flag,Rhub_oR,Duct_flag,Rduct_oR);
-    %初始化涵道相关参数
-    %Initialize duct variables
+    
+    % 根据诱导速度初始值计算进角和水动力螺旋角初始值的正切值
+    tanBeta_c = VA_c./(L*rc+VT_c);
+    tanBetaI_c = (VA_c+UASTAR)./(L*rc+VT_c+UTSTAR);
+    
+    % 计算总来流速度的初始值
+    VSTAR = sqrt((VA_c+UASTAR).^2+(L*rc+VT_c+UTSTAR).^2);
+    
+    % 设置弦径比的初始值
+    CpoDp_c = 0.1*ones(Mp,1);
+    
+    % 初始化叶片上的诱导速度
+    [UAHIF,UTHIF] = Horseshoe(Mp,Z,tanBetaI_c,rc,rv,Hub_flag,...
+                              RhoRp,Duct_flag,RdoRp);
+    
+    % 初始化涵道相关参数
     if Duct_flag == 1
-        %XdRING            [1,Nd],x/Rp location of each vortex ring downstream of propeller
-        %VARING            [1,Nd],(axial free-stream velocity at duct)/Vs
-        %GdRING            [1,Nd],fraction of total non-dimensional duct circulation, sucht that sum(GdRING) = 1 
-        %                         (i.e. non-dimensional circulation per unit Gd)
-        %Gd                       total non-dimensional circulation about the duct, Gd == Gamma_d/(2*pi*Rp*Vs),
-        %                         such that the non-dimensional circulation of ring n is Gd*GdRING(n).
-        %Gamma_d [m^2/s]          total dimensional circulation about the duct [m^2/s]
-        %Cdd                      section drag coefficient for the duct
-        %CTDdes                   desired duct thrust coefficient
-        %CTD                      duct thrust coeff (viscous drag included) with total duct circulation of Gd 
-        %
-        %Influence of propeller on duct:
-        %
-        %(DAHIF ,DRHIF)     [Nd,Mp], (axial/radial horseshoe influence functions of prop on duct)*(2*pi*Rp)
-        %(UARING,URRING)    [1,Nd],  (axial/radial velocity induced at duct (XdRING,Rduct_oR) by prop) / Vs
-        %
-        %
-        %Influence of duct on propeller:
-        %
-        %UARING      [1,Mp]  (axial velocity induced on PROP by duct)/Vs
-        %UADIF       [1,Mp]   axial velocity induced on PROP by duct per unit Gd, 
-        %                    i.e. non-dimensional Duct Influence Function
-        %                    == 2*pi*Rp * (duct influence function with unit dimensional duct circulation)   
-        [XdRING,GdRING,UADIF] = Duct_Influence(Rduct_oR,Cduct_oR,Xduct_oR,RC); % Duct geometry, and influence of duct on propeller
+        % 进行涵道对涵道内流场产生诱导速度的初始化
+        [XdRING,GdRING,UADIF] = Duct_Influence(RdoRp,CdoRp,XdoRp,rc,Nd);
+        
+        % 基于pchip插值的方法确定涵道中线处的轴向来流速度
+        VARING = pchip(ri,VA_i,RdoRp);  
 
-        % ---------------------------- (axial inflow velocity / Vs) at Rduct_oR
-        VARING = pchip(ri,VAI,Rduct_oR);  
-
-        % ------------------------------------------------ Initial guess for Gd
-        Gd     = 0;                  % total duct circulation / (2*pi*Rp*Vs)
-        UADUCT = UADIF * Gd;         % axial velocity induced at RC by the duct
-
-        % ---------------------------------------------------------------------
-        % Initialize Duct Horseshoe Influence Functions (influence of propeller on duct)
-        %
-        % DAHIF(n,m) = influence of m-th horseshoe vortex shed from propeller (Mp panels) 
-        %                    on the n-th control point of the duct            (Nd rings) 
-        %
-        disp(' '), disp('Computing rotor-duct interaction...be patient...'), disp(' '),
-        [DAHIF_times_TANBIC, DTHIF, DRHIF_times_TANBIC] = Horseshoe_intr_110830(XdRING,Rduct_oR, RC,ones(size(TANBIC)),RV,Z,Hub_flag,Rhub_oR,Duct_flag,Rduct_oR); 
-        DAHIF = 0* DAHIF_times_TANBIC; % memory allocation
-        DRHIF = 0* DRHIF_times_TANBIC; % memory allocation
-        for m = 1:Mp                         
-            DAHIF(:,m) = DAHIF_times_TANBIC(:,m) / TANBIC(m);
-            DRHIF(:,m) = DRHIF_times_TANBIC(:,m) / TANBIC(m);
+        % 设置归一化涵道总环量的初始值
+        Gd = 0;
+        
+        % 涵道内流场由涡环产生的总轴向诱导速度
+        UADUCT = UADIF * Gd;
+        
+        % 进行叶片对涵道产生诱导速度的初始化
+        [DAHIF_times_TANBIC,~,DRHIF_times_TANBIC] = Horseshoe_intr_110830(XdRING,RdoRp, rc,ones(size(tanBetaI_c)),rv,Z,Hub_flag,RhoRp,Duct_flag,RdoRp); 
+        % DAHIF(n,m)单位强度环量下叶片上第m个涡格对涵道上第n个控制点的轴向诱导速度
+        DAHIF = zeros(Nd,Mp);
+        DRHIF = zeros(Nd,Mp);
+        for m = 1 : Mp
+            % (:,m)矩阵的第m列
+            DAHIF(:,m) = DAHIF_times_TANBIC(:,m)/tanBetaI_c(m);
+            DRHIF(:,m) = DRHIF_times_TANBIC(:,m)/tanBetaI_c(m);
         end  
     else
         Gd = 1;  % if set Gd==0, then Gd_res would be Inf  
-        UADUCT = 0*RC;
-        CTD = 0;  
+        UADUCT = zeros(Mp,1);
     end
-    %Implement RepairSpline.m
-    % To smooth data X(RC):  X_smooth = X*Bsmooth;
-    Bsmooth = RepairSplineMatrix(RC);
-    %% 进行环量优化（即螺旋桨优化）准备
-    disp('开始环量优化');
-    %螺旋桨优化方法
-    %优化方法为LL-Linear
-    if isfield(input,'EppsOptimizer02_flag')
-        EppsOptimizer02_flag = input.EppsOptimizer02_flag;
-    else
-        EppsOptimizer02_flag = 1;
-    end  % Propeller: LL-Linear
-    %优化方法为LL-Newton (standard hub drag model)
-    if isfield(input,'EppsOptimizer23_flag')
-        EppsOptimizer23_flag = input.EppsOptimizer23_flag;
-    else
-        EppsOptimizer23_flag = 0; 
-    end  % Propeller: LL-Newton (standard hub drag model)
-    %优化方法为LL-Newton (variational hub drag model)
-    if isfield(input,'EppsOptimizer53_flag')
-        EppsOptimizer53_flag = input.EppsOptimizer53_flag; 
-    else
-        EppsOptimizer53_flag = 0; 
-    end  % Propeller: LL-Newton (variational hub drag model)
-    if (EppsOptimizer23_flag == 1 || EppsOptimizer53_flag == 1)
-        EppsOptimizer02_flag = 0;
-    end
-    %初始化优化迭代所用参数
-    LM = -1;        %拉格朗日乘子（用于螺旋桨）
-    LM_last = LM;       %拉格朗日乘子上一次的迭代值
-    G_last = 0*G;       %螺旋桨环量上一次的迭代值
-    Gd_last = 0;        %涵道环量上一次的迭代值
-    G_iter = 1;     %环量迭代次数
-    G_res = 1;      %螺旋桨环量两次迭代之间的差值
-    Gd_res = 0;     %涵道环量两次迭代之间的差值
-    C_res = 0;      %弦长两次迭代之间的差值  
-    relax = 0.9;        % Newton solver relaxation parameter
-    G_TOL = 1e-4;       %环量达到收敛条件的最大残差值
-    if (Chord_flag == 1) && ((strcmp(ChordMethod,'FAST2011dCTP') == 1) || (strcmp(ChordMethod,'FAST2011dVAC') == 1) || (strcmp(ChordMethod,'Brizzolara2007') == 1))
-        ITER = ITER*3;  % allow three circulation iterations per chord iteration
-    end
-    %% 优化循环
-    while G_iter <= ITER && any([G_res;Gd_res] > G_TOL)
-        %循环的进入标准：没有达到最大迭代次数，且环量均没有收敛
-        % UPDATE: G, UASTAR, UTSTAR, TANBIC, (duct stuff), LM
-        if Propeller_flag == 1
-            %% 迭代方法为LL-Linear
-            %根据Coney的博士论文，拉格朗日乘子法必要条件，即偏导数为0所得的方程组中
-            %前Mp个方程，也就是对Γ求偏导的化简结果中均包括所有的Mp+1个变量
-            %而总共Mp+1个变量，共有Mp+1个方程，
-            if EppsOptimizer02_flag == 1
-                %A为变量{Γ(1),Γ(2),...,Γ(Mp),λ}的系数，也就是方程组等号左侧的系数矩阵
-                A = zeros(Mp+1,Mp+1);
-                %B为方程组等号右侧的常数项向量
-                B = zeros(Mp+1,1);
-                for i = 1:Mp                           % for each equation for G(i)
-                    for m = 1:Mp                       % for each vortex panel, m        
-                        A(i,m) = UAHIF(m,i)*RC(m)*DR(m)+UAHIF(i,m)*RC(i)*DR(i)...
-                                 +LM_last*UTHIF(m,i)*DR(m)+LM_last*UTHIF(i,m)*DR(i);
-                    end  
-                    B(i) = -(VAC(i)+UADUCT(i))*RC(i)*DR(i);
-                    A(i,Mp+1) = (L*RC(i)+VTC(i))*DR(i);
-                end
-                % The (Mp+1) equation is either the thrust constraint or torque constraint
-                % Note: A(Mp+1,Mp+1) = 0            
-                if TorqueSpec_flag == 0  % thrust is specified, CT_prop_inviscid/(4*Z) == CTPdes/(4*Z) + CT_prop_viscous/(4*Z) + CT_hub/(4*Z)
-                    for m = 1:Mp                          
-                        A(Mp+1,m) = (L*RC(m) + VTC(m) + UTSTAR(m))*DR(m);  
-                    end
-                    B(Mp+1) =  CTPdes/(4*Z)  +  (1/(2*pi))*sum(Cdp.*VSTAR.*CpoDp.*(VAC + UADUCT + UASTAR).*DR);
-                    if Hub_flag == 1
-                        B(Mp+1) = B(Mp+1) + (Z/8)*(log(1/Rhv)+3)*(G_last(1)^2);
-                    end
-                else % torque is specified, CQ_prop_inviscid/(4*Z) == CQdes/(4*Z) - CQ_prop_viscous/(4*Z)
-                    for m = 1:Mp
-                        A(Mp+1,m) = (VAC(m) + UADUCT(m) + UASTAR(m))*RC(m)*DR(m);
-                    end
-                    B(Mp+1) =  CQdes/(4*Z)  -  (1/(2*pi))*sum(Cdp.*VSTAR.*CpoDp.*(L*RC + VTC + UTSTAR).*RC.*DR);
-                end
-                % -------------------------------- Solve linear system of equations
-                GLM = linsolve(A,B);             
-                G = GLM(1:Mp);                     % G is the first Mp entries
-                LM = GLM(Mp+1);                     % LM is the last entry
-                % ----------------------------------------------------------------- 
-                % Update induced velocities (influence of propeller on propeller)
-                UASTAR = (UAHIF*G)';  
-                UTSTAR = (UTHIF*G)';  
-                TANBIC = (VAC + UADUCT + UASTAR)./(L*RC + VTC + UTSTAR);
-                % Smooth the inflow angle for numerical stability:
-                TANBICsmooth = TANBIC * Bsmooth;
-                % -----------------------------------------------------------------
-
-                if any(isnan(GLM))  || ~isreal(GLM) || max(G-G_last) > 10
-                    G = 0*RC';
-                    UASTAR = 0*RC;
-                    UTSTAR = 0*RC;
-                    TANBIC = TANBC;
-
-                    disp(' ')
-                    disp('<WARNING>')
-                    disp('<WARNING> GLM == NaN or imaginary... crash avoided...')
-                    disp('<WARNING>')
-                    disp(' ')
-                    disp('Switching numerical method to Newton solver...')
-                    disp(' ')
-
-                    EppsOptimizer02_flag = 0;
-                    EppsOptimizer23_flag = 1;
-                end   
-                % -----------------------------------------------------------------      
-
-                % ----------------------------------------------------------------- 
-                if Duct_flag == 1
-                    % Update the influence of propeller on duct
-                    for m = 1:Mp
-                        DAHIF(:,m) = DAHIF_times_TANBIC(:,m) / TANBICsmooth(m);
-                        DRHIF(:,m) = DRHIF_times_TANBIC(:,m) / TANBICsmooth(m);
-                    end
-
-                    % Update induced velocities at the duct (influence of propeller on duct)
-                    UARING = (DAHIF*G)';  
-                    URRING = (DRHIF*G)'; 
-
-                    % If propeller torque specified, then need to update desired duct thrust based on current prop thrust and specified thrust ratio, TAU
-                    if TorqueSpec_flag == 1
-
-                        CTP = 4*Z*sum(  G'.*(L*RC + VTC + UTSTAR).*DR  -  (1/(2*pi)).*VSTAR.*CpoDp.*Cdp.*(VAC + UADUCT + UASTAR).*DR  );
-
-                        if Hub_flag == 1
-                            CTP = CTP - 0.5*(log(1/Rhv)+3)*(Z*G(1))^2;   
-                        end
-
-                        CTDdes = ( (1-TpoT)/TpoT ) * CTP;
-                    end
-
-                    % Update duct circulation such that CTD == CTDdes            
-                    [junk,Gd] = Duct_Thrust(XdRING,Rduct_oR,VARING,UARING,URRING,GdRING,Gd,Cdd,CTDdes);
-
-                    % Update the induced velocities at the propeller (influence of duct on propeller)
-                    UADUCT =  UADIF*Gd;                        
-                end
-                % ----------------------------------------------------------------- 
-
-            end
-            %% 迭代方法为LL-Newton
-            if (EppsOptimizer23_flag == 1 || EppsOptimizer53_flag == 1)
-                % ------------------------------------------ Execute Newton solver   
-                RNS = zeros(4*Mp+1,     1);     % Residual vector
-                JNS = zeros(4*Mp+1,4*Mp+1);     % Jacobian
-
-                % Evaluate induced velocities
-                UASTARtemp = (UAHIF*G)';  
-                UTSTARtemp = (UTHIF*G)';
-
-                % ---------------------------------------------- Evaluate residuals        
-                for i = 1:Mp
-
-                    % 11/16/2011 BEPPS: This was the implementation in EppsOptimizer23.m, but the inclusion
-                    %       of these drag terms has negligable effect ( O(10^-4) ) on the converged circulation distribution.
-                    %            
-                    % RNS(i) =       (VAC(i) + UADUCT(i) + UASTAR(i))     *RC(i)*DR(i)  ...
-                    %          + sum( UAHIF(:,i)'.*G'.*RC  .*DR   ) ...
-                    %          + sum( (1/(2*pi))*Cdp.*CpoDp .* dVdG(:,i)' .* (L*RC + VTC + UTSTAR) .* RC .* DR ) ...
-                    %          + sum( (1/(2*pi))*Cdp.*CpoDp .*  VSTAR     .* (      UTHIF(:,i)'      ) .* RC .* DR ) ...
-                    %          ...    
-                    %          + LM * ( ...
-                    %                        (L*RC(i) + VTC(i) + UTSTAR(i)) * DR(i)  ...
-                    %                  + sum( UTHIF(:,i)' .* G'                .* DR   ) ...
-                    %                  - sum( (1/(2*pi))*Cdp.*CpoDp .* dVdG(:,i)' .* (  VAC + UADUCT + UASTAR     ) .* DR ) ...
-                    %                  - sum( (1/(2*pi))*Cdp.*CpoDp .*  VSTAR     .* (                 UAHIF(:,i)') .* DR ) ...
-                    %                 );
-                    %
-                    % ------
-                    RNS(i) =  (VAC(i) + UADUCT(i) + UASTAR(i)) *RC(i) *DR(i)  ...
-                             +        sum( UAHIF(:,i)' .* G'  .*RC   .*DR   ) ...
-                             ...
-                             + LM * ( sum( UTHIF(:,i)' .* G'        .* DR   ) ...
-                                     +(L*RC(i) + VTC(i) + UTSTAR(i)) * DR(i)  ...
-                                    );            
-                    % ------
-
-                    RNS(i+  Mp) = UASTAR(i) - UASTARtemp(i);
-                    RNS(i+2*Mp) = UTSTAR(i) - UTSTARtemp(i);
-                    RNS(i+3*Mp) = TANBIC(i) - (VAC(i) + UADUCT(i) + UASTAR(i))/(L*RC(i) + VTC(i) + UTSTAR(i)); 
-                end    
-
-                % The (Mp+1) equation is either the thrust constraint or torque constraint
-                %
-                if TorqueSpec_flag == 0  % thrust is specified
-
-                        RNS(1+4*Mp) = sum((L*RC + VTC + UTSTAR).*G'.*DR - (1/(2*pi))*Cdp.*CpoDp.*VSTAR.*(VAC + UADUCT + UASTAR).*DR)  - CTPdes/(4*Z);                
-
-                    if     Hub_flag == 1 && EppsOptimizer23_flag == 1
-
-                        RNS(1+4*Mp) = RNS(1+4*Mp) - (Z/8)*(log(1/Rhv)+3)*(G_last(1)^2);  % EppsOptimizer23.m hub drag treatment  (do NOT include hub drag in variational optimization)
-
-                    elseif Hub_flag == 1 && EppsOptimizer53_flag == 1
-
-                        RNS(1)      = RNS(1)      - (Z/4)*(log(1/Rhv)+3)*(G(1)*LM);      % EppsOptimizer53.m hub drag treatment  (include hub drag in variational optimization) 
-
-                        RNS(1+4*Mp) = RNS(1+4*Mp) - (Z/8)*(log(1/Rhv)+3)*(G(1)^2);       % EppsOptimizer53.m hub drag treatment  (include hub drag in variational optimization)   
-                    end
-
-                else  % torque is specified
-
-                        RNS(1+4*Mp) = sum( (VAC + UADUCT + UASTAR).*G'.*RC.*DR + (1/(2*pi))*Cdp.*CpoDp.*VSTAR.*(L*RC + VTC + UTSTAR).*RC.*DR )  - CQdes/(4*Z);
-                end
-
-                % ----------------------------------------------- Evaluate Jacobian        
-                for i = 1:Mp 
-                    JNS(i     ,(1:Mp)     ) = UAHIF(:,i)' .* RC .* DR  +  LM * UTHIF(:,i)' .* DR;
-
-                    JNS(i     , i    +  Mp) = JNS(i,i+  Mp) + RC(i)*DR(i);
-                    JNS(i     , i    +2*Mp) = JNS(i,i+2*Mp) + LM   *DR(i);
-
-                    % 11/16/2011 BEPPS: This was the implementation in EppsOptimizer23.m, but the inclusion
-                    %       of these drag terms has negligable effect ( O(10^-4) ) on the converged circulation distribution.
-                    %
-                    % JNS(i     ,(1:Mp)+  Mp) = - LM * (1/(2*pi))*Cdp.*CpoDp.*dVdG(:,i)'    .*DR;  
-                    % JNS(i     ,(1:Mp)+2*Mp) =        (1/(2*pi))*Cdp.*CpoDp.*dVdG(:,i)'.*RC.*DR;  
-                    %
-                    % JNS(i ,1+4*Mp)      =       (L*RC(i) + VTC(i) + UTSTAR(i)) * DR(i)  ...
-                    %                       + sum( UTHIF(:,i)' .* G'                .* DR   ) ...
-                    %                       - sum( (1/(2*pi))*Cdp.*CpoDp .* dVdG(:,i)' .* (  VAC + UADUCT + UASTAR     ) .* DR ) ...
-                    %                       - sum( (1/(2*pi))*Cdp.*CpoDp .*  VSTAR     .* (        UAHIF(:,i)') .* DR );
-                    %
-                    % ------
-                    JNS(i ,1+4*Mp)      =       (L*RC(i) + VTC(i) + UTSTAR(i)) * DR(i)  ...
-                                          + sum( UTHIF(:,i)' .* G'            .* DR   );
-                    % ------
-
-
-                    JNS(i+  Mp,1:Mp  ) = - UAHIF(i,1:Mp);
-                    JNS(i+  Mp,i+  Mp) = 1;
-
-                    JNS(i+2*Mp,1:Mp  ) = - UTHIF(i,1:Mp);
-                    JNS(i+2*Mp,i+2*Mp) = 1;
-
-                    JNS(i+3*Mp,i+  Mp) = -1                          /(L*RC(i) + VTC(i) + UTSTAR(i));
-                    JNS(i+3*Mp,i+2*Mp) = (VAC(i)+UADUCT(i)+UASTAR(i))/(L*RC(i) + VTC(i) + UTSTAR(i))^2;
-                    JNS(i+3*Mp,i+3*Mp) = 1;
-
-
-                    % The (Mp+1) equation is either the thrust constraint or torque constraint
-                    %
-                    if TorqueSpec_flag == 0  % thrust is specified
-
-                        JNS(1+4*Mp,i     ) = (L*RC(i) + VTC(i) + UTSTAR(i))*DR(i);
-                        JNS(1+4*Mp,i+  Mp) = - (1/(2*pi))*Cdp(i)*CpoDp(i)*VSTAR(i)*DR(i);    
-                        JNS(1+4*Mp,i+2*Mp) = G(i)*DR(i);
-
-
-                        if Hub_flag == 1 && EppsOptimizer53_flag == 1     
-                            JNS(1,1)      = JNS(1,1)      - (Z/4)*(log(1/Rhv)+3)*LM;   % EppsOptimizer53.m hub drag treatment     
-                            JNS(1,1+4*Mp) = JNS(1,1+4*Mp) - (Z/4)*(log(1/Rhv)+3)*G(1); % EppsOptimizer53.m hub drag treatment 
-                            JNS(1+4*Mp,1) = JNS(1+4*Mp,1) - (Z/4)*(log(1/Rhv)+3)*G(1); % EppsOptimizer53.m hub drag treatment
-                        end            
-
-                    else  % torque is specified
-
-                        JNS(1+4*Mp,i     ) = (VAC(i) + UADUCT(i) + UASTAR(i))*RC(i)*DR(i);
-                        JNS(1+4*Mp,i+  Mp) =                            G(i) *RC(i)*DR(i);
-                        JNS(1+4*Mp,i+2*Mp) = (1/(2*pi))*Cdp(i)*CpoDp(i)*VSTAR(i)*RC(i)*DR(i);             
-                    end
-
-                end
-
-                % ----------------------------- Update Newton solver vector of unknowns
-                DX     = linsolve(JNS,-RNS);
-                G      = G      + relax*DX( 1:Mp      ) ;
-                UASTAR = UASTAR + relax*DX((1:Mp)+  Mp)';
-                UTSTAR = UTSTAR + relax*DX((1:Mp)+2*Mp)';
-                TANBIC = TANBIC + relax*DX((1:Mp)+3*Mp)';
-                LM     = LM     + relax*DX(     1+4*Mp) ;
-
-                % Smooth the inflow angle for numerical stability:
-                TANBICsmooth = TANBIC * Bsmooth;
-                % -----------------------------------------------------------------  
-
-                if any(isnan(DX))  || ~isreal(DX)  || any(DX > 999)
-                     G      = 0*RC';
-                     UASTAR = 0*RC;
-                     UTSTAR = 0*RC;
-                     TANBIC = TANBC;
-
-                     disp(' ')
-                     disp('<WARNING>')
-                     disp('<WARNING> DX == NaN or imaginary... crash avoided...')
-                     disp('<WARNING>')
-                     disp(' ')
-                     G_iter = 999;
-                end
-                % ----------------------------------------------------------------- 
-
-                % -----------------------------------------------------------------
-                if Duct_flag == 1
-                    % Update the influence of propeller on duct
-                    for m = 1:Mp;
-                        DAHIF(:,m) = DAHIF_times_TANBIC(:,m) / TANBICsmooth(m);
-                        DRHIF(:,m) = DRHIF_times_TANBIC(:,m) / TANBICsmooth(m);
-                    end
-
-                    % Update induced velocities at the duct (influence of propeller on duct)
-                    UARING = (DAHIF*G)';  
-                    URRING = (DRHIF*G)'; 
-
-
-                    % If propeller torque specified, then need to update desired duct thrust based on current prop thrust and specified thrust ratio, TAU
-                    if TorqueSpec_flag == 1
-
-                        CTP = 4*Z*sum(  G'.*(L*RC + VTC + UTSTAR).*DR  -  (1/(2*pi)).*VSTAR.*CpoDp.*Cdp.*(VAC + UADUCT + UASTAR).*DR  );
-
-                        if Hub_flag == 1
-                            CTP = CTP - 0.5*(log(1/Rhv)+3)*(Z*G(1))^2;   
-                        end
-
-                        CTDdes = ( (1-TpoT)/TpoT ) * CTP;
-                    end
-
-                    % Update duct circulation such that CTD == CTDdes            
-                    [junk,Gd] = Duct_Thrust(XdRING,Rduct_oR,VARING,UARING,URRING,GdRING,Gd,Cdd,CTDdes);
-
-                    % Update the induced velocities at the propeller (influence of duct on propeller)
-                    UADUCT =  UADIF*Gd;                        
-                end
-            end   
-        else
-            RNS = zeros(4*Mp,1);     % Residual vector
-            JNS = zeros(4*Mp,4*Mp);  % Jacobian
-
-            % Evaluate induced velocities
-            UASTARtemp = (UAHIF*G)';  
-            UTSTARtemp = (UTHIF*G)';
-
-            % ---------------------------------------------- Evaluate residuals        
-            for i = 1:Mp
-
-                if (Chord_flag == 1) && (strcmp(ChordMethod,'CLmax') == 1)
-                    % ==========
-                    % 11/16/2011 BEPPS: This new drag treatment is consistent with actuator disk theory.
-                    %                   The drag term here assumes d(CL)/d(G) == 0, which is true in chord optimization with CL == CLmax.
-                    % 11/17/2011 BEPPS: However, in the no-chord-optimization case, d(CL)/d(G) is not zero, so the drag term is zero to the leading order.  
-                    %                   Furthermore, this code as is crashes for the no-chord-optimization case, so use the formulation below instead.
-                    RNS(i) =   ( VAC(i) + UADUCT(i) + 2*UASTAR(i)) * ( VAC(i) + UADUCT(i) +   UASTAR(i))             ...    
-                             -                                       (L*RC(i) +    VTC(i) + 2*UTSTAR(i)) * UTSTAR(i) ...
-                             + ( VAC(i) + UADUCT(i) + 2*UASTAR(i)) * (L*RC(i) +    VTC(i) + 2*UTSTAR(i)) * Cdp(i)/CLmax(i);
-                    % ==========
-                else
-                    % 11/16/2011 BEPPS: This was the "Robust method" implementation in EppsOptimizer06.m, but the inclusion
-                    %                   of these drag terms has negligable effect ( O(10^-4) ) on the converged circulation distribution.
-                    %            
-                    % Note, the first line is equivalent to:
-                    %
-                    %             (VAC(i) + UADUCT(i))^2 +  (3*(VAC(i) + UADUCT(i))+ 2*UASTAR(i))*UASTAR(i) ...       
-                    %
-                    % RNS(i) =   ( VAC(i) + UADUCT(i) + 2*UASTAR(i)) * (VAC(i) + UADUCT(i) + UASTAR(i))  ...    
-                    %          - (L*RC(i) +    VTC(i) + 2*UTSTAR(i)) * UTSTAR(i) ... 
-                    %          + ( VAC(i) + UADUCT(i) + 2*UASTAR(i)) * (1/(2*pi))*Cdp(i)*CpoDp(i)*dVdG(i,i)*(L*RC(i) + VTC(i) + UTSTAR(i)) ...
-                    %          + ( VAC(i) + UADUCT(i) + 2*UASTAR(i)) * (1/(2*pi))*Cdp(i)*CpoDp(i)*VSTAR(i) * UTHIF(i,i);  
-                    % ------  
-                    % Inviscid terms:    
-                    RNS(i) =   ( VAC(i) + UADUCT(i) + 2*UASTAR(i)) * (VAC(i) + UADUCT(i) + UASTAR(i))  ...    
-                             - (L*RC(i) +    VTC(i) + 2*UTSTAR(i)) * UTSTAR(i);                    
-                    % ------   
-                end
-
-                RNS(i+  Mp) = UASTAR(i) - UASTARtemp(i);
-                RNS(i+2*Mp) = UTSTAR(i) - UTSTARtemp(i);
-                RNS(i+3*Mp) = TANBIC(i) - (VAC(i) + UADUCT(i) + UASTAR(i))/(L*RC(i) + VTC(i) + UTSTAR(i));            
-
-            end
-
-            % ----------------------------------------------- Evaluate Jacobian        
-            for i = 1:Mp 
-
-                if (Chord_flag == 1) && (strcmp(ChordMethod,'CLmax') == 1)
-                    % ==========
-                    % 11/16/2011 BEPPS: New drag treatment...   
-                    JNS(i     ,i+  Mp) =  3*(VAC(i) + UADUCT(i)) + 4*UASTAR(i)   + 2 * (L*RC(i) +    VTC(i) + 2*UTSTAR(i)) * Cdp(i)/CLmax(i);                              
-
-                    JNS(i     ,i+2*Mp) = - (L*RC(i) +    VTC(i)  + 4*UTSTAR(i))  + 2 *  (VAC(i) + UADUCT(i) + 2*UASTAR(i)) * Cdp(i)/CLmax(i);               
-                    % ==========
-                else                  
-                    % 11/16/2011 BEPPS: This was the implementation in EppsOptimizer06.m...
-                    %                  
-                    % JNS(i     ,i+  Mp) =    3*(VAC(i) + UADUCT(i)) + 4*UASTAR(i) ...
-                    %                      + (1/pi)*Cdp(i)*CpoDp(i)*dVdG(i,i)*(L*RC(i) + VTC(i) + UTSTAR(i)) ...
-                    %                      + (1/pi)*Cdp(i)*CpoDp(i)*VSTAR(i) * UTHIF(i,i); 
-                    % 
-                    % JNS(i     ,i+2*Mp) = - (L*RC(i) +    VTC(i) + 4*UTSTAR(i)) ... 
-                    %                      + ( VAC(i) + UADUCT(i) + 2*UASTAR(i))*(1/(2*pi))*Cdp(i)*CpoDp(i)*dVdG(i,i);                 
-                    % ------ 
-                    % Inviscid terms:           
-                    JNS(i     ,i+  Mp) =  3*(VAC(i) + UADUCT(i)) + 4*UASTAR(i);                              
-
-                    JNS(i     ,i+2*Mp) = - (L*RC(i) +    VTC(i)  + 4*UTSTAR(i));               
-                    % ------
-                end
-
-                JNS(i+  Mp,1:Mp  ) = - UAHIF(i,1:Mp);
-                JNS(i+  Mp,i+  Mp) = 1;
-                JNS(i+2*Mp,1:Mp  ) = - UTHIF(i,1:Mp);
-                JNS(i+2*Mp,i+2*Mp) = 1;
-
-                JNS(i+3*Mp,i+  Mp) = -1       /(L*RC(i) + VTC(i) + UTSTAR(i));
-                JNS(i+3*Mp,i+2*Mp) = TANBIC(i)/(L*RC(i) + VTC(i) + UTSTAR(i));
-                JNS(i+3*Mp,i+3*Mp) = 1;
-            end
-
-            % ----------------------------- Update Newton solver vector of unknowns
-            DX     = linsolve(JNS,-RNS);
-
-            G      = G      + relax*DX( 1:Mp      ) ;
-            UASTAR = UASTAR + relax*DX((1:Mp)+  Mp)';
-            UTSTAR = UTSTAR + relax*DX((1:Mp)+2*Mp)';
-            TANBIC = TANBIC + relax*DX((1:Mp)+3*Mp)'; 
-
-            % Smooth the inflow angle for numerical stability:
-            TANBICsmooth = TANBIC * Bsmooth;
-            % -----------------------------------------------------------------
-
-            % -----------------------------------------------------------------
-            if any(isnan(DX))  || ~isreal(DX)
-                 G      = 0*RC';
-                 UASTAR = 0*RC;
-                 UTSTAR = 0*RC;
-                 TANBIC = TANBC;
-
-                 disp(' ')
-                 disp('<WARNING>')
-                 disp('<WARNING> DX == NaN or imaginary... crash avoided...')
-                 disp('<WARNING>')
-                 disp(' ')
-                 G_iter = 999;
-            end
-            % ----------------------------------------------------------------- 
-
-            % ----------------------------------------------------------------- 
-            if Duct_flag == 1            
-                % Update the influence of propeller on duct
-                for m = 1:Mp;
-                    DAHIF(:,m) = DAHIF_times_TANBIC(:,m) / TANBICsmooth(m);
-                    DRHIF(:,m) = DRHIF_times_TANBIC(:,m) / TANBICsmooth(m);
-                end
-
-                % Update induced velocities at the duct (influence of propeller on duct)
-                UARING = (DAHIF*G)';  
-                URRING = (DRHIF*G)'; 
-
-                % Update duct circulation such that CTD == CTDdes            
-                [junk,GdNEW] = Duct_Thrust(XdRING,Rduct_oR,VARING,UARING,URRING,GdRING,Gd,Cdd,CTDdes);
-
-                Gd = 0.5*GdNEW + (1-0.5)*Gd;
-
-                % Update the induced velocities at the propeller (influence of duct on propeller)
-                UADUCT =  UADIF*Gd;                        
-            end
-            % ----------------------------------------------------------------- 
-
-            % -----------------------------------------------------------------
-            % END: "Robust" method (EppsOptimizer06.m)
-            % -!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!- 
-
-
-            % % -----------------------------------------------------------------        
-            % % "SIMPLE (INCORRECT) OPTIMIZER"        
-            % % -----------------------------------------------------------------
-            % % ---------------------- Set up simultaneous equations for G and LM
-            % A  = zeros(Mp,Mp);         % A matrix for linear system of equations
-            % B  = zeros(Mp,1);          % B matrix for linear system of equations
-            % 
-            % for i = 1:Mp                           % for each equation for G(i)
-            %     for m = 1:Mp                       % for each vortex panel, m        
-            %         A(i,m) =  UAHIF(m,i)*RC(m)*DR(m)    ...                
-            %                 + UAHIF(i,m)*RC(i)*DR(i); 
-            %     end   
-            % 
-            %     B(i)  = -VAC(i)*RC(i)*DR(i) ...
-            %             -(1/(2*pi))*sum(Cdp.*dVdG(:,i)'.*CpoDp.*(L*RC + VTC + UTSTAR).*RC.*DR) ...
-            %             -(1/(2*pi))*sum(Cdp.*VSTAR.*CpoDp.*UTHIF(:,i)'.*RC.*DR);             
-            % end
-            % 
-            % % -------------------------------- Solve linear system of equations
-            % GLM = linsolve(A,B);             
-            % G   = GLM(1:Mp);                     % G is the first Mp entries
-            % 
-            % % Update induced velocities (influence of propeller on propeller)
-            % UASTAR = (UAHIF*G)';  UTSTAR = (UTHIF*G)';  
-            % 
-            % % -------------------------  Repair outlier {UASTAR, UTSTAR, URSTAR} values
-            % UASTAR = RepairSpline(RC,UASTAR,'UASTAR',Plot_flag*Hvel);
-            % UTSTAR = RepairSpline(RC,UTSTAR,'UTSTAR',Plot_flag*Hvel);
-            %
-            % % -------------------------------------------- Update TANBIC
-            % TANBIC = (VAC + UASTAR)./(L*RC + VTC + UTSTAR);
-            %          
-            % % -----------------------------------------------------------------        
-            % % END "SIMPLE (INCORRECT) OPTIMIZER"        
-            % % -----------------------------------------------------------------           
-        end 
-        % ---------------------------------------------------------------------
-        % END UPDATE: G, UASTAR, UTSTAR, TANBIC, (duct stuff), LM
-        % =@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=
-        %% 更新其他变量
-        % ------------------------------------ Update VSTAR and its derivatives
-        VSTAR  = sqrt((VAC+UADUCT+UASTAR).^2 + (L*RC+VTC+UTSTAR).^2);       
-        % --------------------- Update the vortex Horseshoe Influence Functions
-        % 11/17/2011 BEPPS: If you use TANBICsmooth here, then the circulation and 
-        %                   induced velocities in the turbine case will be wavy!
-        [UAHIF,UTHIF] = Horseshoe(Mp,Z,TANBIC,RC,RV,Hub_flag,Rhub_oR,Duct_flag,Rduct_oR);     
-        % ---------------------------------------------------------------------    
-
-
-        % ------------------------------------------- Update chord distribution
-        if (Chord_flag == 1) && (G_iter <= ITER)
-
-            if strcmp(ChordMethod,'CLmax') == 1
-                % -----------------------------------------------------------------  
-                % Method: Choose chord length based on CLmax
-                % -----------------------------------------------------------------        
-                CpoDp = 2*pi*G'./(VSTAR.*CLmax); % scale CpoDp to keep CL == CLmax
-                % ----------------------------------------------------------------- 
-
-            elseif strcmp(ChordMethod,'ConeyPLL') == 1
-                % -----------------------------------------------------------------
-                % Method: (Coney, 1989) cavitation method -- ASSUMES GIVEN THICKNESS DISTRIBUTION t0oDp      
-                % -----------------------------------------------------------------   
-                SIGMA = SIGMAs./VSTAR.^2;    % local cavitation number
-
-                f0oD = (2*pi*G'./ VSTAR) .* f0octilde ./ CLItilde;
-
-                CpoDp  = (8.09*f0oD+3.033*t0oDp)./(2*SIGMA) + sqrt((8.09*f0oD+3.033*t0oDp).^2 + 4* SIGMA .* (26.67*f0oD.^2 + 10*f0oD.*t0oDp) )./(2*SIGMA);
-                % ----------------------------------------------------------------- 
-
-
-            elseif strcmp(ChordMethod,'FAST2011dCTP') == 1
-                % -----------------------------------------------------------------  
-                % Method: see (Epps et al., FAST'2011)
-                % -----------------------------------------------------------------
-                % Every third iteration, update the chord and thickness.
-                if mod(G_iter,3) == 0
-
-                   [CpoDp, t0oc, C_res] = Chord_FAST2011_dCTP(SIGMAh,CTdesh, Jh,CpoDp,t0oc,...      
-                                         Propeller_flag,Viscous_flag,Hub_flag,Duct_flag, ...
-                                         Z,Mp,ITER,Rhv,RC,RV,DR,Rhub_oR,VMIV,CTD,...
-                                         L,G,VAC,VTC,UASTAR,UTSTAR,VSTAR,TANBIC,Cdp,...
-                                         Rp,rho,Vs,N);            
-                end
-
-            elseif strcmp(ChordMethod,'FAST2011dVAC') == 1
-                % -----------------------------------------------------------------  
-                % Method: see (Epps et al., FAST'2011)
-                % -----------------------------------------------------------------
-                % Every third iteration, update the chord and thickness.
-                if mod(G_iter,3) == 0
-
-                   [CpoDp, t0oc, C_res] = Chord_FAST2011_dVAC(dVAC,SIGMAs,L,RC,VAC,VTC,UADUCT,UASTAR,UTSTAR,G,CpoDp,t0oc,...
-                                               DR,Cdp,Z,Js,VMIV,Hub_flag,Rhub_oR,Rhv,CTD,Mp,Rp,rho,Vs,N);
-                end
-
-            elseif strcmp(ChordMethod,'Brizzolara2007') == 1
-                % -----------------------------------------------------------------  
-                % Method: see (Brizzolara et al., 2007)
-                % -----------------------------------------------------------------
-                % Every third iteration, update the chord and thickness.
-                if mod(G_iter,3) == 0
-
-    %                 save temp
-    %                 return
-
-                   [CT,CQ,CP,KT,KQ, CTH,TpoT, Ja,Jw,VMWV, EFFYo, EFFY,ADEFFY,QF] = ...
-                        Forces(RC,DR,VAC,VTC,UASTAR,UTSTAR,UADUCT,Cdp,CpoDp,G,Z,Js,VMIV,Hub_flag,Rhub_oR,Rhv,CTD);
-
-                   [CpoDp, t0oc, C_res] = Chord_Brizzolara(rho,n,Dp,Vs,H,Mp,Z,KT,KQ, RC,G,VSTAR,TANBIC,CpoDp,t0oc);
-                end
-            end
-
-            % -----------------------------------------------------------------
-            % Scale CpoDp to give specified Expanded Area Ratio (EAR == EARspec)
-            %如果伸张面积比有特殊要求，进行比例缩放
-            if EARspec > 0
-               EAR = (2*Z/pi) * trapz(   linspace(Rhub_oR,1,100), interp1(RC,CpoDp, linspace(Rhub_oR,1,100), 'spline','extrap')   );  
-               CpoDp = (EARspec/EAR) * CpoDp; 
-            end
-            % -----------------------------------------------------------------
-
-            % -----------------------------------------------------------------
-            if all(CpoDp == 0) || any(isnan(CpoDp))
-                 G      = 0*RC';
-                 UASTAR = 0*RC;
-                 UTSTAR = 0*RC;
-                 TANBIC = TANBC;
-                 CpoDp    = 0*RC;
-
-                 disp(' ')
-                 disp('<WARNING>')
-                 disp('<WARNING> CpoDp == NaN or zero... crash avoided...')
-                 disp('<WARNING>')
-                 disp(' ')
-                 G_iter = 999;
-            end
+    
+    % 平滑矩阵 X_smooth = Bsmooth*X;
+    Bsmooth = RepairSplineMatrix(rc);
+    
+    %% 进行环量优化
+    % 初始化迭代参数
+    LM = -1;            % 拉格朗日乘子（用于螺旋桨）
+    LM_last = LM;       % 拉格朗日乘子上一次的迭代值
+    Gp_last = 0*Gp;     % 螺旋桨环量上一次的迭代值
+    Gd_last = 0;        % 涵道环量上一次的迭代值
+    G_iter = 1;         % 环量迭代次数
+    Gp_res = 1;         % 螺旋桨环量两次迭代之间的差值
+    Gd_res = 0;         % 涵道环量两次迭代之间的差值
+    C_res = 0;          % 弦长两次迭代之间的差值  
+    G_TOL = 1e-4;       % 环量达到收敛条件的最大残差值
+    
+    % 循环中方程求解直接所得：
+    % Gp LM
+    % 依据方程解和已知或上一代求解结果所得：
+    % UASTAR UTSTAR tanBetaI_c DAHIF DRHIF UARING URRING Gd UADUCT
+    % VSTAR UAHIF UTHIF
+    while G_iter <= ITER && any([Gp_res;Gd_res] > G_TOL)
+        % A为变量{Γ(1),Γ(2),...,Γ(Mp),λ}的系数，也就是方程组等号左侧的系数矩阵
+        A = zeros(Mp+1,Mp+1);
+        % B为方程组等号右侧的常数项向量
+        B = zeros(Mp+1,1);
+        for i = 1:Mp                           % for each equation for G(i)
+            for m = 1:Mp                       % for each vortex panel, m        
+                A(i,m) = UAHIF(m,i)*rc(m)*drv(m)+UAHIF(i,m)*rc(i)*drv(i)...
+                         +LM_last*UTHIF(m,i)*drv(m)+LM_last*UTHIF(i,m)*drv(i);
+            end  
+            B(i) = -(VA_c(i)+UADUCT(i))*rc(i)*drv(i);
+            A(i,Mp+1) = (L*rc(i)+VT_c(i))*drv(i);
         end
-        % ---------------------------------- Prepare for the next iteration
-        G_res   = abs((G - G_last)./G);    % residual G
-        G_last  = G;                       % the last value of G
-        Gd_res  = abs((Gd - Gd_last)/Gd);  % residual Gd
-        Gd_last = Gd;                      % the last value of Gd
-        LM_last = LM;                      % last value of the Lagrange Multiplier    
+
+        if TorqueSpec_flag == 0 
+            % 要求升力满足输入条件
+            for m = 1:Mp                          
+                A(Mp+1,m) = (L*rc(m)+VT_c(m)+UTSTAR(m))*drv(m);  
+            end
+
+            B(Mp+1) = CTp_desired/(4*Z)+(1/(2*pi))*...
+                      sum(CDp_c.*VSTAR.*CpoDp_c.*(VA_c+UADUCT+UASTAR).*drv);
+            if Hub_flag == 1
+                % 加入桨毂阻力
+                B(Mp+1) = B(Mp+1) + (Z/8)*(log(1/Rhv)+3)*(Gp_last(1)^2);
+            end
+        else
+            % 要求扭矩满足条件
+            for m = 1:Mp
+                A(Mp+1,m) = (VA_c(m)+UADUCT(m)+UASTAR(m))*rc(m)*drv(m);
+            end
+            B(Mp+1) = CQdes/(4*Z)-(1/(2*pi))*...
+                      sum(CDp_c.*VSTAR.*CpoDp_c.*(L*rc + VT_c + UTSTAR).*rc.*drv);
+        end
+
+        % 求解线性方程组
+        GLM = linsolve(A,B);
+        % 解的前Mp项为当前本次迭代求得的环量值
+        Gp = GLM(1:Mp);
+        % 解的第Mp+1项为本次迭代求得的拉格朗日乘子
+        LM = GLM(Mp+1);
+
+        % 更新诱导速度
+        UASTAR = UAHIF*Gp;  
+        UTSTAR = UTHIF*Gp;  
+
+        % 更新水动力螺旋角的正切值
+        tanBetaI_c = (VA_c+UADUCT+UASTAR)./(L*rc+VT_c+UTSTAR);
+        % 优化水动力螺旋角
+        tanBetaI_c_smooth = Bsmooth*tanBetaI_c;
+
+        if any(isnan(GLM))||~isreal(GLM)||max(Gp-Gp_last) > 10
+            % 解无效或非实数解或环量突变时进行警告
+            Gp = zeros(Mp,1);
+            UASTAR = zeros(Mp,1);
+            UTSTAR = zeros(Mp,1);
+            tanBetaI_c = tanBeta_c;
+            % 弹出错误框
+            error = sprintf('使用拉格朗日乘子法进行环量优化时，拉格朗日方程组无解或解无效');
+            uialert(Fig_Main,error,'求解失败');
+        end   
+
+        if Duct_flag == 1
+            % 更新叶片对涵道的诱导速度
+            for m = 1:Mp
+                DAHIF(:,m) = DAHIF_times_TANBIC(:,m) / tanBetaI_c_smooth(m);
+                DRHIF(:,m) = DRHIF_times_TANBIC(:,m) / tanBetaI_c_smooth(m);
+            end
+            UARING = DAHIF*Gp;  
+            URRING = DRHIF*Gp; 
+
+            % 更新涵道上的环量
+            [~,Gd] = Duct_Thrust(XdRING,RdoRp,VARING,UARING,URRING,...
+                                 GdRING,Gd,CDd,CTd_desired);
+
+            % 更新涵道在涵道内流场产生的轴向诱导速度
+            UADUCT = UADIF*Gd;                        
+        end
+        
+        % 更新总来流速度
+        VSTAR = sqrt((VA_c+UADUCT+UASTAR).^2+(L*rc+VT_c+UTSTAR).^2);       
+        
+        % 更新叶片内部影响
+        [UAHIF,UTHIF] = Horseshoe(Mp,Z,tanBetaI_c,rc,rv,Hub_flag,...
+                                  RhoRp,Duct_flag,RdoRp);     
+        
+        % 更新弦长分布
+        if strcmp(ChordMethod,'CLmax')
+            % 直接由输入获得升力系数和厚径比，由此得到弦径比
+            CpoDp_c = 2*pi*Gp./(VSTAR.*CL_c);
+            
+        elseif strcmp(ChordMethod,'ConeyPLL')
+            % 直接由输入获取厚径比，根据计算获得升力系数
+            SIGMA = SIGMAs./VSTAR.^2;    % local cavitation number
+            F0oDp = (2*pi*Gp./VSTAR).*F0oCdtilde_c./CLItilde_c;
+            CpoDp_c = (8.09*F0oDp+3.033*T0oDp_c)./(2*SIGMA)+...
+                       sqrt((8.09*F0oDp+3.033*T0oDp_c).^2+...
+                       4*SIGMA.*(26.67*F0oDp.^2+10*F0oDp.*T0oDp_c))./(2*SIGMA);
+                   
+        end
+
+        % 如果伸张面积比有特殊要求，进行比例缩放
+        if EARspec > 0
+           EAR = (2*Z/pi)*trapz(linspace(RhoRp,1,100),...
+                 interp1(rc,CpoDp_c,linspace(RhoRp,1,100), 'spline','extrap'));  
+           CpoDp_c = (EARspec/EAR)*CpoDp_c; 
+        end
+        
+        if all(CpoDp_c == 0) || any(isnan(CpoDp_c))
+             Gp = 0*rc;
+             UASTAR = 0*rc;
+             UTSTAR = 0*rc;
+             tanBetaI_c = tanBeta_c;
+             CpoDp_c = 0*rc;
+             % 弹出错误框
+             error = sprintf(['使用',ChordMethod,...
+                             '法求解厚径比失败 \n 请切换至其他方法']);
+             uialert(Fig_Main,error,'求解失败');
+             G_iter = 999;
+        end
+        
+        % 更新迭代参数
+        Gp_res = abs((Gp-Gp_last)./Gp);
+        Gp_last = Gp;
+        Gd_res = abs((Gd-Gd_last)/Gd);
+        Gd_last = Gd;
+        LM_last = LM;
 
         if G_iter < 10
-            disp(['The max  G_res for iteration  ',num2str(G_iter),' is: ',num2str(max(G_res))]),  
+            disp(['The max G_res for iteration ',num2str(G_iter),...
+                 ' is:',num2str(max(Gp_res))]),  
         else
-            disp(['The max  G_res for iteration ',num2str(G_iter),' is: ',num2str(max(G_res))]),  
+            disp(['The max G_res for iteration ',num2str(G_iter),...
+                 'is: ',num2str(max(Gp_res))]),  
         end    
-
-    %     if Duct_flag == 1
-    %         disp(['The     Gd_res for iteration ',num2str(G_iter),' is: ',num2str(Gd_res)]),        
-    %     end
-        % ---------------------------------------------------------------------
-
-        % ---------------------------------------------------------------------
-        if (Chord_flag == 1)  &&  ( (strcmp(ChordMethod,'FAST2011dCTP') == 1) || (strcmp(ChordMethod,'FAST2011dVAC') == 1) || (strcmp(ChordMethod,'Brizzolara2007') == 1) )
-            if mod(G_iter,3) ~= 0
-                G_res = 1;
-            else
-                G_res = max([G_res;C_res/10]);
-            end
-        end
-        % ---------------------------------------------------------------------
-
-        % ---------------------------------------------------------------------
-        G_iter  = G_iter + 1;              % iteration in the G loop
-        % ---------------------------------------------------------------------   
+        
+        % 迭代次数+1
+        G_iter = G_iter+1;
     end
-    %% 进行优化结果说明
+    
+    % 进行优化结果说明
     if G_iter > ITER
-        disp(' '),
-        disp('警告：结果未收敛'),
+        disp('警告：结果未收敛');
+        % 弹出错误框
+        error = sprintf('求解结果未收敛');
+        uialert(Fig_Main,error,'求解失败');
         Converge_flag = 0;
     else
-        disp(' '),
-        disp('完成优化，结果收敛'),
+        disp('完成优化，结果收敛');
         Converge_flag = 1;
     end
-    %%
-
-    % =========================================================================
-    % 11/17/2011 BEPPS: Note that the OpenProp 3.2.0 version of Unload_Blade.m 
-    %                   does not do a very good job of scaling the circulation
-    %                   such that CT == CTdes.  This code should be improved.
-    %
+    
     % If required, unload the hub and tip, then rescale the circulation
     % distribution to get the desired value of the thrust coefficient.
-    if Hub_flag && (HUF > 0 || TUF > 0)                       % (IF STATEMENT U1)
-
+    if Hub_flag && (HUF > 0 || TUF > 0)
         if Duct_flag == 0
-            DAHIF_times_TANBIC  = 0;
-            DRHIF_times_TANBIC 	= 0;
-            XdRING              = 0;
-            Rduct_oR            = 1;
-            VARING              = 0;
-            GdRING              = 0;
-            Gd                  = 0;
-            Cdd                 = 0;
-            CTDdes              = 0;
+            DAHIF_times_TANBIC = 0;
+            DRHIF_times_TANBIC = 0;
+            XdRING = 0;
+            RdoRp = 1;
+            VARING = 0;
+            GdRING = 0;
+            Gd = 0;
+            CDd = 0;
+            CTd_desired = 0;
         end
 
-        [G,UASTAR,UTSTAR,TANBIC,UARING,URRING,Gd,UADUCT] = ...
-                                        Unload_Blade(HUF,TUF,RC,Rhub_oR, G,  VAC,VTC, TANBIC,RV,DR,L,Mp,Z, ...
-                                                     Hub_flag,ITER,Bsmooth,Cdp,CpoDp,Js,VMIV,Rhv,CTPdes,...
-                                                     Duct_flag,UADUCT,XdRING,Rduct_oR,VARING,GdRING,UADIF,Gd,Cdd,CTDdes,...
-                                                     DAHIF_times_TANBIC,DRHIF_times_TANBIC,...
-                                                     Plot_flag,Hgamma,HHgamma,Hvel,HHvel,Hbeta,HHbeta);    
+        [Gp,UASTAR,UTSTAR,tanBetaI_c,UARING,URRING,Gd,UADUCT] = ...
+            Unload_Blade(HUF,TUF,rc,RhoRp, Gp,  VA_c,VT_c, tanBetaI_c,rv,drv,L,Mp,Z, ...
+                         Hub_flag,ITER,Bsmooth,CDp_c,CpoDp_c,Js,VMIV,Rhv,CTp_desired,...
+                         Duct_flag,UADUCT,XdRING,RdoRp,VARING,GdRING,UADIF,Gd,CDd,CTd_desired,...
+                         DAHIF_times_TANBIC,DRHIF_times_TANBIC,...
+                         Plot_flag,Hgamma,HHgamma,Hvel,HHvel,Hbeta,HHbeta);    
 
     end
-    % =========================================================================
-
-    % if Rroot > Rhub 
-    %     % --------------------------------------------------------------------- 
-    %     % Develop code for turbine case with circular blade sections near the root.
-    %     % ---------------------------------------------------------------------
-    % end
-
-
-    % --------------------- Compute thrust & torque coefficients and efficiency
-    % Compute the actual CT for the duct with the current circulation Gd
+    
+    % 计算无量纲参数和各类系数
+    % 根据优化后的涵道环量计算涵道实际所占的推力系数
     if Duct_flag == 1
-        [CTD,junk] = Duct_Thrust(XdRING,Rduct_oR,VARING,UARING,URRING,GdRING,Gd,Cdd,CTDdes);
+        [CTd_desired,~] = Duct_Thrust(XdRING,RdoRp,VARING,UARING,URRING,...
+                                      GdRING,Gd,CDd,CTd_desired);
     end
 
-    [CT,CQ,CP,KT,KQ, CTH,TpoT, Ja,Jw,VMWV, EFFYo, EFFY,ADEFFY,QF,QFo,QFw] = ...
-        Forces(RC,DR,VAC,VTC,UASTAR,UTSTAR,UADUCT,Cdp,CpoDp,G,Z,Js,VMIV,Hub_flag,Rhub_oR,Rhv,CTD);
-
-
-    % -------------------------------------------------------------------------
-    CL   = 2*pi*G'./(VSTAR.*CpoDp);     % lift coefficient
+    [CT,CQ,CP,KT,KQ,CTH,TpoT,Ja,~,VMWV,EFFYo,EFFY,ADEFFY,QF,QFo,QFw] = ...
+        Forces(rc,drv,VA_c,VT_c,UASTAR,UTSTAR,UADUCT,CDp_c,CpoDp_c,Gp,Z,Js,...
+               VMIV,Hub_flag,RhoRp,Rhv,CTd_desired);
+    
+    % 根据优化后的环量和速度计算实际的升力系数
+    CL_c = 2*pi*Gp./(VSTAR.*CpoDp_c);
 
     % Expanded Area Ratio
-    EAR = (2*Z/pi) * trapz(   linspace(Rhub_oR,1,100), interp1(RC,CpoDp, linspace(Rhub_oR,1,100), 'spline','extrap')   );  
+    EAR = (2*Z/pi)*trapz(linspace(RhoRp,1,100),...
+          interp1(rc,CpoDp_c,linspace(RhoRp,1,100),'spline','extrap'));  
+    
+    % 更新厚弦比
+    T0oCp_c = T0oDp_c ./ CpoDp_c;    
+    
+    % 计算消耗的扭矩
+    Q = CQ*0.5*rho*VS^2*pi*Dp^2/4*Dp/2;
+    
+    % 计算螺旋桨消耗的功率
+    P = Q*2*pi*N/60;
+    
+    %% 打印和保存计算结果
+    design.part1 = '叶片相关的计算结果';
+    design.rc = rc;                         % [Mp*1] 控制点坐标
+    design.rv = rv;                         % [Mp+1*1] 涡格点坐标
+    design.drv = drv;                       % [Mp*1] 相邻两涡格点坐标差值
+    design.Gp = Gp;                         % [Mp*1] 控制点/涡格环量
+    design.VA_c = VA_c;                     % [Mp*1] 轴向来流速度 
+    design.VT_c = VT_c;                     % [Mp*1] 切向来流速度 
+    design.UASTAR = UASTAR;                 % [Mp*1] 控制点处总轴向诱导速度 
+    design.UTSTAR = UTSTAR;                 % [Mp*1] 控制点处总切向诱导速度 
+    design.VSTAR = VSTAR;                   % [Mp*1] 总相对来流速度  
+    design.tanBeta_c = tanBeta_c;           % [Mp*1] 进角
+    design.tanBetaI_c = tanBetaI_c;         % [Mp*1] 水动力螺旋角 
+    design.CL_c = CL_c;                     % [Mp*1] 升力系数 
+    design.CDp_c = CDp_c;                   % [Mp*1] 阻力系数 
+    design.CpoDp_c = CpoDp_c;               % [Mp*1] 弦径比
+    design.T0oCp_c = T0oCp_c;               % [Mp*1] 厚弦比 
+    design.T0oDp_c = T0oDp_c;               % [Mp*1] 厚径比 
 
-    % -------------------------------------------------------------------------
-
-
-    % ------------------------------------------- Update chord distribution
-    if (Chord_flag == 1) && ( (strcmp(ChordMethod,'FAST2011dCTP') == 1) || (strcmp(ChordMethod,'FAST2011dVAC') == 1) || (strcmp(ChordMethod,'Brizzolara2007') == 1) )
-        % Use with chord optimization methods that optimize t0oc
-        t0oDp = t0oc.*CpoDp;
-    else   
-        % Use when no chord optimization or with chord optimization methods 
-        % that do not optimize t0oc (e.g. CLmax or Coney use given t0oDp)
-        t0oc = t0oDp ./ CpoDp;    
-    end
-    % -------------------------------------------------------------------------
-
-
-
-    % -------------------------------------------------------------------------
-    % -------------------------------------------------------------------------
-        disp(' '),
-        disp('Forces after circulation optimization:')
-
-    if Propeller_flag == 1
-
-        disp(['    Js = ',num2str(Js)]),    
-        disp(['    KT = ',num2str(KT)]),   
-        disp(['    KQ = ',num2str(KQ)]),   
-        disp(['    CT = ',num2str(CT)]),
-        if abs(VMIV - 1) > 1e-8     % i.e. if VMIV is not equal to 1 
-        disp(['    Ja = ',num2str(Ja)]),
-        end
-        disp(['  EFFY = ',num2str(EFFY)]),
-        disp(['ADEFFY = ',num2str(ADEFFY)]),    
-        disp(['    QF = ',num2str(QF)]),    
-
-    else
-        disp(['L      =  ',num2str(L)]),    
-        disp(['CP     = ' ,num2str(CP)]),  
-        disp(['CPBetz = ' ,num2str(CPBetz)]),  
-        disp(['QF     =  ',num2str(CP/CPBetz)]),      
-    end
-        disp(' ')     
-        disp(' ')     
-    %% 保存计算结果
-    design.part1      = '------ Section properties, size (1,Mp) ------';
-    design.RC         = RC;                 % [1 x Mp] control point radii
-    design.DR         = DR;                 % [1 x Mp] difference in vortex point radii
-    design.G          = G';                 % [1 x Mp] circulation distribution
-    design.VAC        = VAC;                % [1 x Mp] 
-    design.VTC        = VTC;                % [1 x Mp] 
-    design.UASTAR     = UASTAR;             % [1 x Mp] 
-    design.UTSTAR     = UTSTAR;             % [1 x Mp] 
-    design.VSTAR      = VSTAR;              % [1 x Mp]  
-    design.TANBC      = TANBC;              % [1 x Mp] 
-    design.TANBIC     = TANBIC;             % [1 x Mp] 
-    design.CL         = CL;                 % [1 x Mp] 
-    design.Cdp         = Cdp;                 % [1 x Mp] 
-    design.CpoDp        = CpoDp;                % [1 x Mp]
-    design.t0oc       = t0oc;               % [1 x Mp] 
-    design.t0oDp       = t0oDp;               % [1 x Mp] 
-
-    design.part2      = '------ Other properties  ------';
-    design.converged  = Converge_flag;
-    design.iteration  = G_iter;
-    design.RV         = RV;                 % [1 x Mp+1] vortex point radii
-    design.Rhub_oR    = Rhub_oR;            % [1 x 1]
-    design.EAR        = EAR;
-    design.LM         = LM;                 % [1 x 1]
-    design.VMIV       = VMIV;               % [1 x 1]
-    design.VMWV       = VMWV;               % [1 x 1]
-    design.SIGMAs     = SIGMAs;
-
-
+    design.part2 = '其余计算结果';
+    design.Converge_flag = Converge_flag;   % 计算结果是否收敛
+    design.iteration = G_iter;              % 优化总迭代次数
+    design.RhoRp = RhoRp;                   % 桨毂半径/叶片半径
+    design.EAR = EAR;                       % 伸张面积比
+    design.LM = LM;                         % 拉格朗日乘子
+    design.VMIV = VMIV;                     % 体平均速度
+    design.VMWV = VMWV;                     % 
+    design.SIGMAs = SIGMAs;                 % 
+    design.Q = Q;                           % 螺旋桨扭矩
+    design.P = P;                           % 螺旋桨功率
+    
     if Duct_flag == 1  
-        design.part3      = '------ Duct parameters ------';
-        design.Rduct_oR   = Rduct_oR;           % [1 x 1]
-        design.Cduct_oR   = Cduct_oR;           % [1 x 1]
-        design.Xduct_oR   = Xduct_oR;           % [1 x 1]
-        design.Gd         = Gd;                 % [1 x 1], duct circulation   
-        design.VARING     = VARING;             % [1 x  1]
+        design.part3 = '涵道计算结果';
+        design.RdoRp = RdoRp;               % 涵道半径/叶片半径
+        design.CdoRp = CdoRp;               % 涵道弦长/叶片半径
+        design.XdoRp = XdoRp;               % 涵道位置/叶片半径
+        design.Gd = Gd;                     % 涵道涡环环量
+        design.VARING = VARING;             % 涵道中线处轴向来流速度
+        
+        design.XdRING = XdRING;             % [Nd*1] 涡环轴向坐标
+        design.UARING = UARING;             % [Nd*1] 涵道受到叶片轴向的诱导速度
+        design.URRING = URRING;             % [Nd*1] 涵道受到叶片径向的诱导速度
+        design.GdRING = GdRING;             % [Nd*1] 涡环环量沿轴向的占比
 
-        design.XdRING     = XdRING;             % [1 x Nd], Nd=12 duct vortex rings 
-        design.UARING     = UARING;             % [1 x Nd], Nd=12 duct vortex rings
-        design.URRING     = URRING;             % [1 x Nd], Nd=12 duct vortex rings
-        design.GdRING     = GdRING;             % [1 x Nd], Nd=12 duct vortex rings
+        design.DAHIFtT = DAHIF_times_TANBIC;% [Nd,Mp]
+        design.DRHIFtT = DRHIF_times_TANBIC;% [Nd,Mp]
+        
+        design.UADIF = UADIF;               % [Mp*1] 涵道对涵道内流场的轴向诱导速度
+        design.UADUCT = UADUCT;             % [Mp*1] 涵道对涵道内流场的轴向诱导速度
+        design.CTp_desired = CTp_desired;   % 叶片的推力系数
+        design.CTd_desired = CTd_desired;   % 涵道的推力系数
 
-        design.DAHIFtT    = DAHIF_times_TANBIC; % [Nd,Mp], Duct Horseshoe Influence Functions (influence of propeller on duct)
-        design.DRHIFtT    = DRHIF_times_TANBIC; % [Nd,Mp], Duct Horseshoe Influence Functions (influence of propeller on duct)
-
-
-
-        design.UADIF      = UADIF;              % [1 x Mp] 
-        design.UADUCT     = UADUCT;             % [1 x Mp] 
-        design.CTPdes     = CTPdes;             % [1 x 1], desired propeller CT
-        design.CTDdes     = CTDdes;             % [1 x 1], desired duct      CT
-
-        design.TAU        = TpoT;                  % [1 x 1]
-        design.CTD        = CTD;                  % [1 x 1]
-        design.part4      = '------ Performance metrics ------';
+        design.TpoT = TpoT;                 % 叶片升力占比
+        design.CDd = CDd;                   % 涵道阻力系数
+        design.part4 = '性能参数';
     else
-        design.part3      = '------ Performance metrics ------';
+        design.part3 = '性能参数';
     end
+    
+    design.L = L;
+    design.Js = Js;
+    design.KT = KT;
+    design.KQ = KQ;
+    design.CT = CT;
+    design.CQ = CQ;
+    design.CP = CP;
+    design.CTH = CTH;
 
+    if abs(VMIV-1) > 1e-8   
+        % i.e. if VMIV is not equal to 1 
+        design.EFFYo = EFFYo;
+        design.Ja = Ja;
+    end
+    design.EFFY = EFFY;
+    design.ADEFFY = ADEFFY;
+    design.QF = QF;
 
-    if Propeller_flag == 1
-        design.L      = L;
-        design.Js     = Js;
-        design.KT     = KT;                   % [1 x 1]
-        design.KQ     = KQ;                   % [1 x 1]
-        design.CT     = CT;                   % [1 x 1]
-        design.CQ     = CQ;                   % [1 x 1]
-        design.CP     = CP;                   % [1 x 1]
-        design.CTH    = CTH;                  % [1 x 1]
-
-        if abs(VMIV - 1) > 1e-8   % i.e. if VMIV is not equal to 1 
-        design.EFFYo  = EFFYo;                 % [1 x 1]
-        design.Ja     = Ja;
-        end
-        design.EFFY   = EFFY;                 % [1 x 1],  EFFY = EFFYa by convention (Kerwin)
-        design.ADEFFY = ADEFFY;               % [1 x 1], prop.   actuator disk
-        design.QF     = QF;                   % [1 x 1]
-
-        if (VMIV < 0.05)   % assume design for bollard pull
-            design.QFo    = QFo;                  % [1 x 1]
-            design.QFw    = QFw;                  % [1 x 1]
-        end
-    else    
-        design.L      = L;
-        design.Js     = Js;
-    %     design.KT     = KT;                   % [1 x 1]
-    %     design.KQ     = KQ;                   % [1 x 1] 
-        design.CT     = CT;                   % [1 x 1]
-        design.CQ     = CQ;                   % [1 x 1]
-        design.CP     = CP;                   % [1 x 1]
-        design.CPBetz = CPBetz;               % [1 x 1], turbine actuator disk
-        design.QF     = CP/CPBetz;
+    if (VMIV < 0.05)   
+        % assume design for bollard pull
+        design.QFo = QFo;
+        design.QFw = QFw;
     end
 end
